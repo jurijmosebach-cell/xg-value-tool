@@ -1,6 +1,6 @@
 // app.js – Version für Render Deployment
 
-const API_BASE = "https://xg-value-tool.onrender.com"; // <<< Deine Render-URL
+const API_BASE = "";
 
 const matchList = document.getElementById("match-list");
 const refreshBtn = document.getElementById("refresh");
