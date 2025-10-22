@@ -1,5 +1,4 @@
-// server.js — FERTIG FÜR RENDER (1:1 Austausch)
-// Nur 1x anpassen: API_FOOTBALL_KEY → dein exakter Key-Name aus Render!
+// server.js — Bereinigt für Render Deployment
 
 import express from "express";
 import fetch from "node-fetch";
@@ -8,7 +7,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
@@ -16,16 +14,14 @@ app.use(express.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// STATISCH: Frontend (index.html, app.js, style.css)
+// Statisches Frontend (index.html, app.js, style.css)
 app.use(express.static(__dirname));
 
-// API SETTINGS
+// API Settings
 const API_URL = "https://api-football-v1.p.rapidapi.com/v3";
+const API_KEY = process.env.API_FOOTBALL_KEY; // <- Render Variable!
 
-// WICHTIG: Passe hier den Namen EXAKT an deinen Render-Key an!
-const API_KEY = process.env.API_FOOTBALL_KEY; // ← ÄNDERE NUR DIESEN NAMEN!
-
-// FIXTURES ENDPOINT
+// Fixtures Endpoint
 app.get("/fixtures", async (req, res) => {
   const date = req.query.date;
 
@@ -40,14 +36,12 @@ app.get("/fixtures", async (req, res) => {
     const resp = await fetch(`${API_URL}/fixtures?date=${date}`, {
       headers: {
         "X-RapidAPI-Key": API_KEY,
-        "X-RapidAPI-HOST": "api-football-v1.p.rapidapi.com", // ← Korrekt: HOST groß!
+        "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com",
       },
     });
 
     const data = await resp.json();
-
     console.log("Status:", resp.status);
-    console.log("Daten (Auszug):", JSON.stringify(data).slice(0, 300));
 
     if (!resp.ok) {
       return res.status(resp.status).json({ error: "API-Fehler", details: data });
@@ -60,7 +54,7 @@ app.get("/fixtures", async (req, res) => {
   }
 });
 
-// ODDS ENDPOINT (optional, aber auch korrigiert)
+// Odds Endpoint (optional)
 app.get("/odds", async (req, res) => {
   const date = req.query.date;
 
@@ -71,8 +65,8 @@ app.get("/odds", async (req, res) => {
   try {
     const resp = await fetch(`${API_URL}/odds?date=${date}`, {
       headers: {
-        "X-RapidAPI-Key": `API_KEY`,
-        "X-RapidAPI-HOST": "api-football-v1.p.rapidapi.com",
+        "X-RapidAPI-Key": API_KEY,
+        "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com",
       },
     });
 
@@ -90,14 +84,14 @@ app.get("/odds", async (req, res) => {
   }
 });
 
-// ALLES ANDERE → index.html
+// Alle anderen Routen -> index.html
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// SERVER START
+// Server Start
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Server läuft auf Port ${PORT}`);
-  console.log(`Frontend: https://xg-value-tool.onrender.com`);
+  console.log(`✅ Server läuft auf Port ${PORT}`);
+  console.log(`🌐 Frontend: https://xg-value-tool.onrender.com`);
 });
