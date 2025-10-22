@@ -1,6 +1,6 @@
 // app.js – Version für Render Deployment
 
-const API_KEY = "ae0ba5992b711e38cb4b6a0c518c4620"; // ← TEST-KEY DIREKT IM CODE
+const API_BASE = "/"; // ← KORREKT: relativer Pfad für Render!
 
 const matchList = document.getElementById("match-list");
 const refreshBtn = document.getElementById("refresh");
@@ -29,15 +29,15 @@ async function loadMatches() {
   const league = leagueSelect.value;
 
   statusDiv.textContent = useSample
-    ? "📁 Lade Beispieldaten..."
-    : "⏳ Lade Spieldaten...";
+    ? "Lade Beispieldaten..."
+    : "Lade Spieldaten...";
 
   try {
     let fixtures;
     if (useSample) {
       fixtures = await fetch("./sample-fixtures.json").then((r) => r.json());
     } else {
-      const res = await fetch(`${API_BASE}/fixtures?date=${date}`);
+      const res = await fetch(`${API_BASE}fixtures?date=${date}`);
       fixtures = await res.json();
     }
 
@@ -88,11 +88,11 @@ async function loadMatches() {
     }
 
     statusDiv.textContent = games.length
-      ? `✅ ${games.length} Spiele geladen`
+      ? `${games.length} Spiele geladen`
       : "Keine Spiele mit passendem Value gefunden";
   } catch (err) {
     console.error(err);
-    statusDiv.textContent = "❌ Fehler beim Laden der Daten";
+    statusDiv.textContent = "Fehler beim Laden der Daten";
   }
 }
 
