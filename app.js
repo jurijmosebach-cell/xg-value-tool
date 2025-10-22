@@ -1,6 +1,6 @@
 // app.js – Version für Render Deployment
 
-const API_BASE = "";
+const API_KEY = "c6a1d2120c71b17cca24284ab8a9873b4"; // ← TEST-KEY DIREKT IM CODE
 
 const matchList = document.getElementById("match-list");
 const refreshBtn = document.getElementById("refresh");
