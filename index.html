@@ -3,35 +3,137 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pre-Match Value & xG Tool</title>
+  <title>xG Value Tool ⚽</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
-    <h1>Pre-Match Value & xG Tool</h1>
-    <div class="controls">
-      <input type="date" id="match-date" />
-      <input type="number" id="filter-value" min="0" step="0.01" placeholder="Min Value" value="0.15" />
-      <select id="league-select">
-        <option value="all">Alle Ligen</option>
-        <option value="Premier_League">Premier League</option>
-        <option value="Bundesliga">Bundesliga</option>
-        <option value="La_Liga">La Liga</option>
-        <option value="Serie_A">Serie A</option>
-        <option value="Ligue_1">Ligue 1</option>
-        <option value="UEFA_Champions_League">Champions League</option>
-        <option value="UEFA_Europa_League">Europa League</option>
-        <option value="UEFA_Conference_League">Conference League</option>
-      </select>
-      <button id="refresh">Aktualisieren</button>
-      <button id="toggle-sample">Beispieldaten</button>
-    </div>
-    <div id="status"></div>
+    <h1>xG Value Tool ⚽</h1>
+    <p>Automatische Wettwert-Berechnung aus Expected Goals + Quoten</p>
   </header>
-  <main>
-    <div id="match-list" class="match-list"></div>
-  </main>
-  <footer><small>© 2025 Pre-Match Value & xG Tool | TheOddsAPI aktiv</small></footer>
-  <script src="app.js"></script>
+
+  <section id="controls">
+    <input type="date" id="dateInput" />
+    <select id="leagueSelect">
+      <option value="">Alle Ligen</option>
+      <option value="Premier_League">Premier League</option>
+      <option value="Bundesliga">Bundesliga</option>
+      <option value="La_Liga">La Liga</option>
+      <option value="Serie_A">Serie A</option>
+      <option value="Ligue_1">Ligue 1</option>
+      <option value="UEFA_Champions_League">Champions League</option>
+      <option value="UEFA_Europa_League">Europa League</option>
+      <option value="UEFA_Conference_League">Conference League</option>
+    </select>
+    <button id="loadBtn">🔄 Daten laden</button>
+  </section>
+
+  <div id="status">Bitte Datum wählen und auf <b>Daten laden</b> klicken.</div>
+
+  <section id="match-list"></section>
+
+  <footer>
+    © 2025 xG Value Tool — powered by TheOddsAPI & API-Football
+  </footer>
+
+  <script>
+    const dateInput = document.getElementById("dateInput");
+    const leagueSelect = document.getElementById("leagueSelect");
+    const loadBtn = document.getElementById("loadBtn");
+    const matchList = document.getElementById("match-list");
+    const status = document.getElementById("status");
+
+    const today = new Date().toISOString().slice(0, 10);
+    dateInput.value = today;
+
+    loadBtn.addEventListener("click", async () => {
+      const date = dateInput.value;
+      if (!date) return alert("Bitte ein Datum wählen.");
+
+      status.textContent = "⏳ Lade Daten...";
+      matchList.innerHTML = "";
+
+      try {
+        // Lade Quoten & Fixtures
+        const [oddsRes, fixturesRes] = await Promise.all([
+          fetch(`/odds?date=${date}`),
+          fetch(`/fixtures?date=${date}`)
+        ]);
+        const oddsData = await oddsRes.json();
+        const fixturesData = await fixturesRes.json();
+
+        const fixtures = fixturesData.response || [];
+        if (!fixtures.length) {
+          status.textContent = "Keine Spiele gefunden.";
+          return;
+        }
+
+        status.textContent = `📊 ${fixtures.length} Spiele gefunden`;
+
+        fixtures.forEach(fix => {
+          const home = fix.teams.home.name;
+          const away = fix.teams.away.name;
+          const league = fix.league.name;
+
+          if (leagueSelect.value && fix.league.name !== leagueSelect.value.replaceAll("_", " ")) return;
+
+          const key = `${home} vs ${away}`;
+          const odds = oddsData[key];
+
+          const card = document.createElement("div");
+          card.className = "match-card";
+
+          const header = document.createElement("div");
+          header.className = "match-header";
+
+          header.innerHTML = `
+            <div class="teams">
+              <img src="${fix.teams.home.logo}" alt="${home}">
+              <span>${home}</span>
+              <span class="vs">vs</span>
+              <span>${away}</span>
+              <img src="${fix.teams.away.logo}" alt="${away}">
+            </div>
+            <div class="league">${league}</div>
+          `;
+
+          const xgInfo = document.createElement("div");
+          xgInfo.className = "xg-info";
+
+          if (odds) {
+            const homeVal = calcValue(odds.home);
+            const awayVal = calcValue(odds.away);
+
+            xgInfo.classList.add(
+              homeVal > 0.5 || awayVal > 0.5 ? "value-high" :
+              homeVal > 0.2 || awayVal > 0.2 ? "value-mid" : "value-low"
+            );
+
+            xgInfo.innerHTML = `
+              <b>1X2:</b> ${odds.home} / ${odds.away}<br>
+              <b>Over 2.5:</b> ${odds.over25 || "-"} | <b>BTTS:</b> ${odds.bttsYes || "-"}<br>
+              <b>Value Index:</b> ${homeVal.toFixed(2)} / ${awayVal.toFixed(2)}
+            `;
+          } else {
+            xgInfo.classList.add("value-low");
+            xgInfo.innerHTML = "<i>Keine Quoten gefunden</i>";
+          }
+
+          card.appendChild(header);
+          card.appendChild(xgInfo);
+          matchList.appendChild(card);
+        });
+
+      } catch (err) {
+        console.error(err);
+        status.textContent = "Fehler beim Laden.";
+      }
+    });
+
+    function calcValue(odds) {
+      if (!odds || odds <= 1) return 0;
+      return Math.max(0, (odds - 1.5) / 2); // simple scaled "value"
+    }
+  </script>
 </body>
 </html>
