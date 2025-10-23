@@ -106,4 +106,78 @@ async function loadMatches() {
             over25: 1.8,
             under25: 2.0,
             bttsYes: 1.7,
-            bttsNo: 2.2
+            bttsNo: 2.2,
+            homeMinus05: 1.9
+          };
+        }
+      } else {
+        oddsRaw = oddsJson; // altes Format beibehalten
+      }
+    } catch (err) {
+      console.warn("Odds konnten nicht geladen werden:", err);
+    }
+
+    // === GENERATE MATCH CARDS ===
+    for (const game of games) {
+      const home = game.teams?.home?.name?.trim?.() || "Home";
+      const away = game.teams?.away?.name?.trim?.() || "Away";
+      const key1 = `${home} vs ${away}`;
+      const key2 = `${away} vs ${home}`;
+      const odds = oddsRaw[key1] || oddsRaw[key2];
+
+      if (!odds) continue;
+
+      const homeXG = 1.0 + Math.random() * 1.8;
+      const awayXG = 0.7 + Math.random() * 1.5;
+
+      const homeWinProb = calculatePoissonProbability(homeXG, awayXG, "home");
+      const awayWinProb = calculatePoissonProbability(homeXG, awayXG, "away");
+      const over25Prob = calculateOverUnderProbability(homeXG, awayXG, 2);
+      const bttsProb = calculateBTTSProbability(homeXG, awayXG);
+      const ah05Prob = calculateAsianHandicapProbability(homeXG, awayXG, -0.5);
+
+      const bets = [
+        { team: home, value: homeWinProb * odds.home - 1, quote: odds.home },
+        { team: away, value: awayWinProb * odds.away - 1, quote: odds.away },
+        { team: "Over 2.5", value: over25Prob * odds.over25 - 1, quote: odds.over25 },
+        { team: "BTTS Yes", value: bttsProb * odds.bttsYes - 1, quote: odds.bttsYes },
+        { team: `${home} -0.5`, value: ah05Prob * odds.homeMinus05 - 1, quote: odds.homeMinus05 }
+      ];
+
+      const best = bets.reduce((a, b) => (b.value > a.value ? b : a), { value: -Infinity });
+      if (best.value < minValue) continue;
+
+      const valueClass =
+        best.value > 0.5 ? "value-high" :
+        best.value > 0.2 ? "value-mid" : "value-low";
+
+      const card = document.createElement("div");
+      card.className = "match-card";
+      card.innerHTML = `
+        <div class="match-header">
+          <div class="teams">
+            <img src="${game.teams.home.logo}" alt="${home}" onerror="this.src='https://via.placeholder.com/30'">
+            ${home} <span class="vs">vs</span> ${away}
+            <img src="${game.teams.away.logo}" alt="${away}" onerror="this.src='https://via.placeholder.com/30'">
+          </div>
+          <div class="league">${game.league.name}</div>
+        </div>
+        <div class="xg-info ${valueClass}">
+          <strong>${best.team}</strong>: Value <strong>${best.value.toFixed(2)}</strong>
+          <small>(xG: ${homeXG.toFixed(1)}–${awayXG.toFixed(1)} | Quote: ${best.quote.toFixed(2)})</small>
+        </div>
+      `;
+      matchList.appendChild(card);
+    }
+
+    statusDiv.textContent =
+      games.length ? `${games.length} Spiele analysiert (1X2 + O/U + AH + BTTS)` :
+      "Keine Value-Bets gefunden";
+
+  } catch (err) {
+    console.error(err);
+    statusDiv.textContent = "Fehler: " + err.message;
+  }
+}
+
+loadMatches();
