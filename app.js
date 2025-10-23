@@ -1,4 +1,4 @@
-// app.js — FINAL OHNE BOT | 1X2 + O/U + AH + BTTS
+// app.js — FINAL MIT KEY-FALLBACK | 1X2 + O/U + AH + BTTS
 
 const API_BASE = "/";
 const matchList = document.getElementById("match-list");
@@ -89,11 +89,16 @@ async function loadMatches() {
     const oddsData = await fetch(`${API_BASE}odds?date=${date}`).then(r => r.json());
 
     for (const game of games) {
-      const home = game.teams.home.name;
-      const away = game.teams.away.name;
-      const key = `${home} vs ${away}`;
-      const odds = oddsData[key];
-      if (!odds) continue;
+      const home = game.teams.home.name.trim();
+      const away = game.teams.away.name.trim();
+      const key1 = `${home} vs ${away}`;
+      const key2 = `${away} vs ${home}`;
+      const odds = oddsData[key1] || oddsData[key2];
+
+      if (!odds) {
+        console.log("Keine Quoten für:", key1, "oder", key2);
+        continue;
+      }
 
       const homeXG = 1.0 + Math.random() * 1.8;
       const awayXG = 0.7 + Math.random() * 1.5;
@@ -113,7 +118,7 @@ async function loadMatches() {
         { team: "Under 1.5", value: (1-over15Prob) * odds.under15 - 1, quote: odds.under15 },
         { team: "Over 2.5", value: over25Prob * odds.over25 - 1, quote: odds.over25 },
         { team: "Under 2.5", value: (1-over25Prob) * odds.under25 - 1, quote: odds.under25 },
-        { team: "Over 3.15", value: over35Prob * odds.over35 - 1, quote: odds.over35 },
+        { team: "Over 3.5", value: over35Prob * odds.over35 - 1, quote: odds.over35 },
         { team: "Under 3.5", value: (1-over35Prob) * odds.under35 - 1, quote: odds.under35 },
         { team: `${home} -0.5`, value: ah05Prob * odds.homeMinus05 - 1, quote: odds.homeMinus05 },
         { team: "BTTS Yes", value: bttsProb * odds.bttsYes - 1, quote: odds.bttsYes },
