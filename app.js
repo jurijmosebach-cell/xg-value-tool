@@ -1,4 +1,4 @@
-// app.js — FINAL MIT AKTIVER TheOddsAPI (über Server)
+// app.js — FINAL OHNE BOT | 1X2 + O/U + AH + BTTS
 
 const API_BASE = "/";
 const matchList = document.getElementById("match-list");
@@ -19,6 +19,44 @@ toggleSampleBtn.addEventListener("click", () => {
   loadMatches();
 });
 
+// === POISSON & HILFSFUNKTIONEN ===
+function poisson(lambda) {
+  const probs = [];
+  let p = Math.exp(-lambda);
+  probs.push(p);
+  for (let k = 1; k < 10; k++) { p *= lambda / k; probs.push(p); }
+  return probs;
+}
+
+function calculatePoissonProbability(homeXG, awayXG, outcome) {
+  const h = poisson(homeXG), a = poisson(awayXG);
+  if (outcome === "home") {
+    return h.reduce((s, pH, i) => s + pH * a.slice(0, i).reduce((x, y) => x + y, 0), 0);
+  } else {
+    return a.reduce((s, pA, i) => s + pA * h.slice(0, i).reduce((x, y) => x + y, 0), 0);
+  }
+}
+
+function calculateOverUnderProbability(homeXG, awayXG, goals) {
+  const totalXG = homeXG + awayXG;
+  const probs = poisson(totalXG);
+  return probs.slice(goals + 1).reduce((a, b) => a + b, 0);
+}
+
+function calculateBTTSProbability(homeXG, awayXG) {
+  const h = poisson(homeXG), a = poisson(awayXG);
+  let both = 0;
+  for (let i = 1; i < 10; i++) for (let j = 1; j < 10; j++) both += h[i] * a[j];
+  return both;
+}
+
+function calculateAsianHandicapProbability(homeXG, awayXG, handicap) {
+  const diff = homeXG - awayXG - handicap;
+  const probs = poisson(Math.abs(diff));
+  return diff >= 0 ? 1 - probs[0] : probs[0];
+}
+
+// === LOAD MATCHES ===
 async function loadMatches() {
   matchList.innerHTML = "";
   const date = dateInput.value;
@@ -30,7 +68,7 @@ async function loadMatches() {
   try {
     let fixtures;
     if (useSample) {
-      fixtures = await fetch("./sample-fixtures.json").then(r => r.json());
+      fixtures = await fetch("./sample-fixtures.json").then(r => r.json()).catch(() => ({ response: [] }));
     } else {
       const res = await fetch(`${API_BASE}fixtures?date=${date}`);
       if (!res.ok) throw new Error("Fixtures fehlgeschlagen");
@@ -54,25 +92,38 @@ async function loadMatches() {
       const home = game.teams.home.name;
       const away = game.teams.away.name;
       const key = `${home} vs ${away}`;
-
       const odds = oddsData[key];
       if (!odds) continue;
 
-      // Simulierte xG (oder echte, falls API liefert)
       const homeXG = 1.0 + Math.random() * 1.8;
       const awayXG = 0.7 + Math.random() * 1.5;
 
       const homeWinProb = calculatePoissonProbability(homeXG, awayXG, "home");
       const awayWinProb = calculatePoissonProbability(homeXG, awayXG, "away");
+      const over15Prob = calculateOverUnderProbability(homeXG, awayXG, 1);
+      const over25Prob = calculateOverUnderProbability(homeXG, awayXG, 2);
+      const over35Prob = calculateOverUnderProbability(homeXG, awayXG, 3);
+      const bttsProb = calculateBTTSProbability(homeXG, awayXG);
+      const ah05Prob = calculateAsianHandicapProbability(homeXG, awayXG, -0.5);
 
-      const homeValue = homeWinProb * odds.home - 1;
-      const awayValue = awayWinProb * odds.away - 1;
-      const bestValue = Math.max(homeValue, awayValue);
-      const bestTeam = bestValue === homeValue ? home : away;
+      const bets = [
+        { team: home, value: homeWinProb * odds.home - 1, quote: odds.home },
+        { team: away, value: awayWinProb * odds.away - 1, quote: odds.away },
+        { team: "Over 1.5", value: over15Prob * odds.over15 - 1, quote: odds.over15 },
+        { team: "Under 1.5", value: (1-over15Prob) * odds.under15 - 1, quote: odds.under15 },
+        { team: "Over 2.5", value: over25Prob * odds.over25 - 1, quote: odds.over25 },
+        { team: "Under 2.5", value: (1-over25Prob) * odds.under25 - 1, quote: odds.under25 },
+        { team: "Over 3.15", value: over35Prob * odds.over35 - 1, quote: odds.over35 },
+        { team: "Under 3.5", value: (1-over35Prob) * odds.under35 - 1, quote: odds.under35 },
+        { team: `${home} -0.5`, value: ah05Prob * odds.homeMinus05 - 1, quote: odds.homeMinus05 },
+        { team: "BTTS Yes", value: bttsProb * odds.bttsYes - 1, quote: odds.bttsYes },
+        { team: "BTTS No", value: (1-bttsProb) * odds.bttsNo - 1, quote: odds.bttsNo }
+      ];
 
-      if (bestValue < minValue) continue;
+      const best = bets.reduce((a, b) => (b.value > a.value ? b : a), { value: -Infinity });
+      if (best.value < minValue) continue;
 
-      const valueClass = bestValue > 0.5 ? "value-high" : bestValue > 0.2 ? "value-mid" : "value-low";
+      const valueClass = best.value > 0.5 ? "value-high" : best.value > 0.2 ? "value-mid" : "value-low";
 
       const card = document.createElement("div");
       card.className = "match-card";
@@ -86,42 +137,20 @@ async function loadMatches() {
           <div class="league">${game.league.name}</div>
         </div>
         <div class="xg-info ${valueClass}">
-          <strong>${bestTeam}</strong>: Value <strong>${bestValue.toFixed(2)}</strong>
-          <small>(xG: ${homeXG.toFixed(1)}–${awayXG.toFixed(1)} | Quote: ${odds.home.toFixed(2)} / ${odds.away.toFixed(2)})</small>
+          <strong>${best.team}</strong>: Value <strong>${best.value.toFixed(2)}</strong>
+          <small>(xG: ${homeXG.toFixed(1)}–${awayXG.toFixed(1)} | Quote: ${best.quote.toFixed(2)})</small>
         </div>
       `;
       matchList.appendChild(card);
     }
 
     statusDiv.textContent = games.length
-      ? `${games.length} Spiele analysiert (Live-Quoten aktiv)`
+      ? `${games.length} Spiele analysiert (1X2 + O/U + AH + BTTS)`
       : "Keine Value-Bets gefunden";
   } catch (err) {
     console.error(err);
     statusDiv.textContent = "Fehler: " + err.message;
   }
-}
-
-// Poisson-Funktion
-function calculatePoissonProbability(homeXG, awayXG, outcome) {
-  const homeGoals = poisson(homeXG);
-  const awayGoals = poisson(awayXG);
-  if (outcome === "home") {
-    return homeGoals.reduce((sum, pH, i) => sum + pH * awayGoals.slice(0, i).reduce((a, b) => a + b, 0), 0);
-  } else {
-    return awayGoals.reduce((sum, pA, i) => sum + pA * homeGoals.slice(0, i).reduce((a, b) => a + b, 0), 0);
-  }
-}
-
-function poisson(lambda) {
-  const probs = [];
-  let p = Math.exp(-lambda);
-  probs.push(p);
-  for (let k = 1; k < 10; k++) {
-    p *= lambda / k;
-    probs.push(p);
-  }
-  return probs;
 }
 
 loadMatches();
