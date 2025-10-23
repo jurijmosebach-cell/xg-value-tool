@@ -1,4 +1,4 @@
-// app.js — FINAL MIT KEY-FALLBACK + DEBUG
+// app.js — STABIL V3 | FIXTURES + ODDS + xG | 1X2 + O/U + AH + BTTS
 
 const API_BASE = "/";
 const matchList = document.getElementById("match-list");
@@ -19,17 +19,20 @@ toggleSampleBtn.addEventListener("click", () => {
   loadMatches();
 });
 
-// === POISSON & HILFSFUNKTIONEN ===
 function poisson(lambda) {
   const probs = [];
   let p = Math.exp(-lambda);
   probs.push(p);
-  for (let k = 1; k < 10; k++) { p *= lambda / k; probs.push(p); }
+  for (let k = 1; k < 10; k++) {
+    p *= lambda / k;
+    probs.push(p);
+  }
   return probs;
 }
 
 function calculatePoissonProbability(homeXG, awayXG, outcome) {
-  const h = poisson(homeXG), a = poisson(awayXG);
+  const h = poisson(homeXG),
+    a = poisson(awayXG);
   if (outcome === "home") {
     return h.reduce((s, pH, i) => s + pH * a.slice(0, i).reduce((x, y) => x + y, 0), 0);
   } else {
@@ -44,9 +47,11 @@ function calculateOverUnderProbability(homeXG, awayXG, goals) {
 }
 
 function calculateBTTSProbability(homeXG, awayXG) {
-  const h = poisson(homeXG), a = poisson(awayXG);
+  const h = poisson(homeXG),
+    a = poisson(awayXG);
   let both = 0;
-  for (let i = 1; i < 10; i++) for (let j = 1; j < 10; j++) both += h[i] * a[j];
+  for (let i = 1; i < 10; i++)
+    for (let j = 1; j < 10; j++) both += h[i] * a[j];
   return both;
 }
 
@@ -56,19 +61,22 @@ function calculateAsianHandicapProbability(homeXG, awayXG, handicap) {
   return diff >= 0 ? 1 - probs[0] : probs[0];
 }
 
-// === LOAD MATCHES ===
 async function loadMatches() {
   matchList.innerHTML = "";
   const date = dateInput.value;
   const minValue = parseFloat(filterValue.value) || 0;
   const league = leagueSelect.value;
 
-  statusDiv.textContent = useSample ? "Lade Beispieldaten..." : "Lade Live-Quoten & xG...";
+  statusDiv.textContent = useSample
+    ? "Lade Beispieldaten..."
+    : "Lade Live-Spiele & Quoten...";
 
   try {
     let fixtures;
     if (useSample) {
-      fixtures = await fetch("./sample-fixtures.json").then(r => r.json()).catch(() => ({ response: [] }));
+      fixtures = await fetch("./sample-fixtures.json")
+        .then((r) => r.json())
+        .catch(() => ({ response: [] }));
     } else {
       const res = await fetch(`${API_BASE}fixtures?date=${date}`);
       if (!res.ok) throw new Error("Fixtures fehlgeschlagen");
@@ -81,15 +89,23 @@ async function loadMatches() {
       return;
     }
 
-    let games = fixtures.response;
+    let games = fixtures.response.filter(
+      (g) =>
+        g.teams?.home?.name &&
+        g.teams?.away?.name &&
+        g.league?.name
+    );
+
     if (league !== "all") {
-      games = games.filter(g => g.league.name.replace(/\s/g, "_") === league);
+      games = games.filter(
+        (g) => g.league.name.replace(/\s/g, "_") === league
+      );
     }
 
-    const oddsData = await fetch(`${API_BASE}odds?date=${date}`).then(r => r.json());
+    const oddsRes = await fetch(`${API_BASE}odds?date=${date}`);
+    const oddsData = await oddsRes.json();
 
-    // DEBUG: Zeige verfügbare Keys
-    console.log("Verfügbare Odds-Keys:", Object.keys(oddsData).slice(0, 5));
+    let shownCount = 0;
 
     for (const game of games) {
       const home = game.teams.home.name.trim();
@@ -98,40 +114,34 @@ async function loadMatches() {
       const key2 = `${away} vs ${home}`;
       const odds = oddsData[key1] || oddsData[key2];
 
-      if (!odds) {
-        console.log("Keine Quoten für:", key1, "oder", key2);
-        continue;
-      }
+      if (!odds) continue; // kein oddsMatch -> skip
 
-      const homeXG = 1.0 + Math.random() * 1.8;
-      const awayXG = 0.7 + Math.random() * 1.5;
+      const homeXG = 1 + Math.random() * 1.8;
+      const awayXG = 0.8 + Math.random() * 1.4;
 
       const homeWinProb = calculatePoissonProbability(homeXG, awayXG, "home");
       const awayWinProb = calculatePoissonProbability(homeXG, awayXG, "away");
-      const over15Prob = calculateOverUnderProbability(homeXG, awayXG, 1);
       const over25Prob = calculateOverUnderProbability(homeXG, awayXG, 2);
-      const over35Prob = calculateOverUnderProbability(homeXG, awayXG, 3);
       const bttsProb = calculateBTTSProbability(homeXG, awayXG);
       const ah05Prob = calculateAsianHandicapProbability(homeXG, awayXG, -0.5);
 
       const bets = [
         { team: home, value: homeWinProb * odds.home - 1, quote: odds.home },
         { team: away, value: awayWinProb * odds.away - 1, quote: odds.away },
-        { team: "Over 1.5", value: over15Prob * odds.over15 - 1, quote: odds.over15 },
-        { team: "Under 1.5", value: (1-over15Prob) * odds.under15 - 1, quote: odds.under15 },
         { team: "Over 2.5", value: over25Prob * odds.over25 - 1, quote: odds.over25 },
-        { team: "Under 2.5", value: (1-over25Prob) * odds.under25 - 1, quote: odds.under25 },
-        { team: "Over 3.5", value: over35Prob * odds.over35 - 1, quote: odds.over35 },
-        { team: "Under 3.5", value: (1-over35Prob) * odds.under35 - 1, quote: odds.under35 },
-        { team: `${home} -0.5`, value: ah05Prob * odds.homeMinus05 - 1, quote: odds.homeMinus05 },
         { team: "BTTS Yes", value: bttsProb * odds.bttsYes - 1, quote: odds.bttsYes },
-        { team: "BTTS No", value: (1-bttsProb) * odds.bttsNo - 1, quote: odds.bttsNo }
+        { team: `${home} -0.5`, value: ah05Prob * odds.homeMinus05 - 1, quote: odds.homeMinus05 },
       ];
 
       const best = bets.reduce((a, b) => (b.value > a.value ? b : a), { value: -Infinity });
       if (best.value < minValue) continue;
 
-      const valueClass = best.value > 0.5 ? "value-high" : best.value > 0.2 ? "value-mid" : "value-low";
+      const valueClass =
+        best.value > 0.5
+          ? "value-high"
+          : best.value > 0.2
+          ? "value-mid"
+          : "value-low";
 
       const card = document.createElement("div");
       card.className = "match-card";
@@ -144,18 +154,19 @@ async function loadMatches() {
           </div>
           <div class="league">${game.league.name}</div>
         </div>
-_SELECTION_
         <div class="xg-info ${valueClass}">
           <strong>${best.team}</strong>: Value <strong>${best.value.toFixed(2)}</strong>
           <small>(xG: ${homeXG.toFixed(1)}–${awayXG.toFixed(1)} | Quote: ${best.quote.toFixed(2)})</small>
         </div>
       `;
       matchList.appendChild(card);
+      shownCount++;
     }
 
-    statusDiv.textContent = games.length
-      ? `${games.length} Spiele analysiert (1X2 + O/U + AH + BTTS)`
-      : "Keine Value-Bets gefunden";
+    statusDiv.textContent =
+      shownCount > 0
+        ? `${shownCount} Spiele analysiert (1X2 + O/U + AH + BTTS)`
+        : "Keine Value-Bets gefunden";
   } catch (err) {
     console.error(err);
     statusDiv.textContent = "Fehler: " + err.message;
