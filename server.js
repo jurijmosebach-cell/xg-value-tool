@@ -1,4 +1,4 @@
-// server.js — FINAL OHNE BOT | 1X2 + O/U + AH + BTTS
+// server.js — FINAL MIT KEY-FIX | 1X2 + O/U + AH + BTTS
 
 import express from "express";
 import fetch from "node-fetch";
@@ -46,7 +46,7 @@ app.get("/fixtures", async (req, res) => {
   }
 });
 
-// === /odds → ALLE MÄRKTE ===
+// === /odds → KEY-FIX: BEIDE RICHTUNGEN + TRIM ===
 app.get("/odds", async (req, res) => {
   const date = req.query.date;
   if (!ODDS_API_KEY) return res.status(500).json({ error: "ODDS_API_KEY fehlt" });
@@ -65,9 +65,10 @@ app.get("/odds", async (req, res) => {
         const eventDate = new Date(event.commence_time).toISOString().slice(0, 10);
         if (eventDate !== date) continue;
 
-        const home = event.home_team;
-        const away = event.away_team;
-        const key = `${home} vs ${away}`;
+        const home = event.home_team.trim();
+        const away = event.away_team.trim();
+        const key1 = `${home} vs ${away}`;
+        const key2 = `${away} vs ${home}`;
 
         const bookmaker = event.bookmakers?.find(b => b.key === "pinnacle") || event.bookmakers?.[0];
         if (!bookmaker) continue;
@@ -105,11 +106,13 @@ app.get("/odds", async (req, res) => {
         const bttsNo = btts.outcomes?.find(o => o.name === "No")?.price || 0;
 
         if (homeOdds > 1 && awayOdds > 1) {
-          oddsMap[key] = {
+          const oddsObj = {
             home: homeOdds, away: awayOdds,
             ...overUnder, ...ah,
             bttsYes, bttsNo
           };
+          oddsMap[key1] = oddsObj;
+          oddsMap[key2] = oddsObj; // Beide Richtungen!
         }
       }
     }
@@ -127,5 +130,5 @@ app.get("*", (req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server läuft auf http://localhost:${PORT}`);
-  console.log(`TheOddsAPI AKTIV: 1X2 + O/U + AH + BTTS`);
+  console.log(`TheOddsAPI AKTIV: KEY-FIX + 1X2 + O/U + AH + BTTS`);
 });
