@@ -3,12 +3,136 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xG Value Tool ⚽</title>
+  <title>xG Value Tool – Dashboard ⚽</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+      background: #0e0e10;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      background: linear-gradient(90deg, #2563eb, #1e3a8a);
+      padding: 20px;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    h1 { margin: 0; font-size: 1.8rem; }
+    #controls {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px auto;
+    }
+    input, select, button {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1rem;
+    }
+    button {
+      background: #2563eb;
+      color: #fff;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover { background: #1d4ed8; }
+    #status {
+      margin: 10px;
+      font-size: 0.95rem;
+      opacity: 0.8;
+    }
+    #match-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .match-card {
+      background: #1e1e22;
+      border-radius: 16px;
+      padding: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .match-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    }
+    .match-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .teams {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .teams img {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+    }
+    .vs { color: #888; }
+    .league {
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+    .xg-info {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      border-radius: 12px;
+      padding: 10px;
+      transition: background 0.3s;
+    }
+    .value-high { background: rgba(34,197,94,0.15); border: 1px solid #22c55e; }
+    .value-mid { background: rgba(234,179,8,0.15); border: 1px solid #eab308; }
+    .value-low { background: rgba(239,68,68,0.15); border: 1px solid #ef4444; }
+    #top5 {
+      max-width: 600px;
+      margin: 30px auto;
+      background: #1a1a1d;
+      border-radius: 16px;
+      padding: 15px;
+      text-align: left;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+    }
+    #top5 h2 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 1.3rem;
+      color: #22c55e;
+    }
+    #top5 ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    #top5 li {
+      padding: 6px 0;
+      border-bottom: 1px solid #333;
+      font-size: 0.95rem;
+    }
+    footer {
+      margin-top: 40px;
+      padding: 20px;
+      font-size: 0.8rem;
+      color: #777;
+    }
+  </style>
 </head>
 <body>
   <header>
-    <h1>xG Value Tool ⚽</h1>
+    <h1>xG Value Tool – Dashboard ⚽</h1>
     <p>Automatische Wettwert-Berechnung aus Expected Goals + Quoten</p>
   </header>
 
@@ -29,7 +153,7 @@
   </section>
 
   <div id="status">Bitte Datum wählen und auf <b>Daten laden</b> klicken.</div>
-
+  <section id="top5"></section>
   <section id="match-list"></section>
 
   <footer>
@@ -42,6 +166,7 @@
     const loadBtn = document.getElementById("loadBtn");
     const matchList = document.getElementById("match-list");
     const status = document.getElementById("status");
+    const top5Box = document.getElementById("top5");
 
     const today = new Date().toISOString().slice(0, 10);
     dateInput.value = today;
@@ -52,24 +177,23 @@
 
       status.textContent = "⏳ Lade Daten...";
       matchList.innerHTML = "";
+      top5Box.innerHTML = "";
 
       try {
-        // Lade Quoten & Fixtures
         const [oddsRes, fixturesRes] = await Promise.all([
           fetch(`/odds?date=${date}`),
           fetch(`/fixtures?date=${date}`)
         ]);
         const oddsData = await oddsRes.json();
         const fixturesData = await fixturesRes.json();
-
         const fixtures = fixturesData.response || [];
+
         if (!fixtures.length) {
           status.textContent = "Keine Spiele gefunden.";
           return;
         }
 
-        status.textContent = `📊 ${fixtures.length} Spiele gefunden`;
-
+        const valueList = [];
         fixtures.forEach(fix => {
           const home = fix.teams.home.name;
           const away = fix.teams.away.name;
@@ -79,13 +203,38 @@
 
           const key = `${home} vs ${away}`;
           const odds = oddsData[key];
+          if (!odds) return;
+
+          const homeVal = calcValue(odds.home);
+          const awayVal = calcValue(odds.away);
+          const topVal = Math.max(homeVal, awayVal);
+          valueList.push({ match: key, league, value: topVal });
+        });
+
+        valueList.sort((a, b) => b.value - a.value);
+        const top5 = valueList.slice(0, 5);
+
+        if (top5.length > 0) {
+          const ul = document.createElement("ul");
+          ul.innerHTML = top5.map(t => `<li><b>${t.match}</b> (${t.league}) — Value: <span style="color:#22c55e">${t.value.toFixed(2)}</span></li>`).join("");
+          top5Box.innerHTML = "<h2>🔥 Top 5 Value Matches</h2>";
+          top5Box.appendChild(ul);
+        }
+
+        status.textContent = `📊 ${fixtures.length} Spiele geladen`;
+
+        fixtures.forEach(fix => {
+          const home = fix.teams.home.name;
+          const away = fix.teams.away.name;
+          const league = fix.league.name;
+          const key = `${home} vs ${away}`;
+          const odds = oddsData[key];
 
           const card = document.createElement("div");
           card.className = "match-card";
 
           const header = document.createElement("div");
           header.className = "match-header";
-
           header.innerHTML = `
             <div class="teams">
               <img src="${fix.teams.home.logo}" alt="${home}">
@@ -97,42 +246,40 @@
             <div class="league">${league}</div>
           `;
 
-          const xgInfo = document.createElement("div");
-          xgInfo.className = "xg-info";
+          const info = document.createElement("div");
+          info.className = "xg-info";
 
           if (odds) {
-            const homeVal = calcValue(odds.home);
-            const awayVal = calcValue(odds.away);
-
-            xgInfo.classList.add(
-              homeVal > 0.5 || awayVal > 0.5 ? "value-high" :
-              homeVal > 0.2 || awayVal > 0.2 ? "value-mid" : "value-low"
+            const hv = calcValue(odds.home);
+            const av = calcValue(odds.away);
+            info.classList.add(
+              hv > 0.5 || av > 0.5 ? "value-high" :
+              hv > 0.25 || av > 0.25 ? "value-mid" : "value-low"
             );
-
-            xgInfo.innerHTML = `
+            info.innerHTML = `
               <b>1X2:</b> ${odds.home} / ${odds.away}<br>
               <b>Over 2.5:</b> ${odds.over25 || "-"} | <b>BTTS:</b> ${odds.bttsYes || "-"}<br>
-              <b>Value Index:</b> ${homeVal.toFixed(2)} / ${awayVal.toFixed(2)}
+              <b>Value:</b> ${hv.toFixed(2)} / ${av.toFixed(2)}
             `;
           } else {
-            xgInfo.classList.add("value-low");
-            xgInfo.innerHTML = "<i>Keine Quoten gefunden</i>";
+            info.classList.add("value-low");
+            info.innerHTML = "<i>Keine Quoten</i>";
           }
 
           card.appendChild(header);
-          card.appendChild(xgInfo);
+          card.appendChild(info);
           matchList.appendChild(card);
         });
 
       } catch (err) {
         console.error(err);
-        status.textContent = "Fehler beim Laden.";
+        status.textContent = "⚠️ Fehler beim Laden.";
       }
     });
 
     function calcValue(odds) {
       if (!odds || odds <= 1) return 0;
-      return Math.max(0, (odds - 1.5) / 2); // simple scaled "value"
+      return Math.max(0, (odds - 1.5) / 2);
     }
   </script>
 </body>
