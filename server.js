@@ -1,4 +1,66 @@
-// === /odds — FIXED (spreads statt handicap) + robust + fallback ===
+// server.js — STABIL V4 | FIXED spreads + Fallback + Logging
+
+import express from "express";
+import fetch from "node-fetch";
+import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// === Pfade ===
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use(express.static(__dirname));
+
+// === API KEYS ===
+const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
+const ODDS_API_KEY = process.env.ODDS_API_KEY;
+
+// === Liga-Mapping ===
+const LEAGUE_TO_SPORT = {
+  "Premier_League": "soccer_epl",
+  "Bundesliga": "soccer_germany_bundesliga",
+  "La_Liga": "soccer_spain_la_liga",
+  "Serie_A": "soccer_italy_serie_a",
+  "Ligue_1": "soccer_france_ligue_one",
+  "UEFA_Champions_League": "soccer_uefa_champions_league",
+  "UEFA_Europa_League": "soccer_uefa_europa_league",
+  "UEFA_Conference_League": "soccer_uefa_conference_league"
+};
+
+// === /fixtures ===
+app.get("/fixtures", async (req, res) => {
+  const date = req.query.date;
+  if (!API_FOOTBALL_KEY) {
+    console.error("❌ API_FOOTBALL_KEY fehlt!");
+    return res.status(500).json({ error: "API_FOOTBALL_KEY fehlt" });
+  }
+
+  try {
+    console.log(`📅 Hole Fixtures für ${date}...`);
+    const resp = await fetch(`https://v3.football.api-sports.io/fixtures?date=${date}`, {
+      headers: { "x-apisports-key": API_FOOTBALL_KEY }
+    });
+
+    console.log("🔁 Status Fixtures:", resp.status);
+    if (!resp.ok) {
+      const msg = await resp.text();
+      console.error(`⚠️ Fixtures API Fehler [${resp.status}]: ${msg}`);
+      return res.status(500).json({ error: msg });
+    }
+
+    const data = await resp.json();
+    res.json(data);
+  } catch (err) {
+    console.error("🔥 Fixtures Fehler:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// === /odds ===
 app.get("/odds", async (req, res) => {
   const date = req.query.date;
   if (!ODDS_API_KEY) {
@@ -119,4 +181,16 @@ app.get("/odds", async (req, res) => {
     console.error("🔥 Odds-Fehler:", err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// === STATIC ===
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// === START ===
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`\n🚀 Server läuft auf http://localhost:${PORT}`);
+  console.log(`⚽ TheOddsAPI aktiv: KEY-FIX + 1X2 + O/U + AH + BTTS + Fallback`);
 });
