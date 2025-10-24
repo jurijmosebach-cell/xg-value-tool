@@ -1,67 +1,4 @@
-// server.js — FINAL FIX + LEAGUES + LOGGING + FALLBACK
-
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// === Pfade korrekt setzen ===
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-app.use(express.static(__dirname));
-
-// === API KEYS ===
-const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
-const ODDS_API_KEY = process.env.ODDS_API_KEY;
-
-// === Liga-Mapping ===
-const LEAGUE_TO_SPORT = {
-  "Premier_League": "soccer_epl",
-  "Bundesliga": "soccer_germany_bundesliga",
-  "La_Liga": "soccer_spain_la_liga",
-  "Serie_A": "soccer_italy_serie_a",
-  "Ligue_1": "soccer_france_ligue_one",
-  "UEFA_Champions_League": "soccer_uefa_champions_league",
-  "UEFA_Europa_League": "soccer_uefa_europa_league",
-  "UEFA_Conference_League": "soccer_uefa_conference_league"
-};
-
-// === /fixtures ===
-app.get("/fixtures", async (req, res) => {
-  const date = req.query.date;
-  if (!API_FOOTBALL_KEY) {
-    console.error("❌ API_FOOTBALL_KEY fehlt!");
-    return res.status(500).json({ error: "API_FOOTBALL_KEY fehlt" });
-  }
-
-  try {
-    console.log(`📅 Hole Fixtures für ${date}...`);
-    const resp = await fetch(`https://v3.football.api-sports.io/fixtures?date=${date}`, {
-      headers: { "x-apisports-key": API_FOOTBALL_KEY }
-    });
-
-    console.log("🔁 Status Fixtures:", resp.status);
-
-    if (!resp.ok) {
-      const msg = await resp.text();
-      console.error(`⚠️ Fixtures API Fehler [${resp.status}]: ${msg}`);
-      return res.status(500).json({ error: msg });
-    }
-
-    const data = await resp.json();
-    res.json(data);
-  } catch (err) {
-    console.error("🔥 Fixtures Fehler:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// === /odds — robust + fallback ===
+// === /odds — FIXED (spreads statt handicap) + robust + fallback ===
 app.get("/odds", async (req, res) => {
   const date = req.query.date;
   if (!ODDS_API_KEY) {
@@ -95,11 +32,10 @@ app.get("/odds", async (req, res) => {
 
   try {
     for (const [leagueValue, sportKey] of Object.entries(LEAGUE_TO_SPORT)) {
-      const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,handicap,btts&dateFormat=iso&oddsFormat=decimal`;
+      // ✅ FIX: spreads statt handicap
+      const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,spreads,btts&dateFormat=iso&oddsFormat=decimal`;
 
-      console.log("\n📡 Anfrage an:", sportKey);
-      console.log("📅 Datum:", date);
-
+      console.log(`\n📡 Anfrage an: ${sportKey} (${date})`);
       const resp = await fetch(url);
       console.log("🔁 Status:", resp.status);
 
@@ -127,12 +63,12 @@ app.get("/odds", async (req, res) => {
         const marketMap = {};
         bookmaker.markets.forEach(m => (marketMap[m.key] = m));
 
-        // 1X2
+        // --- 1X2 ---
         const h2h = marketMap["h2h"] || {};
         const homeOdds = h2h.outcomes?.find(o => o.name === home)?.price || 0;
         const awayOdds = h2h.outcomes?.find(o => o.name === away)?.price || 0;
 
-        // Over/Under
+        // --- Over/Under ---
         const totals = marketMap["totals"] || {};
         const overUnder = { over25: 0, under25: 0 };
         totals.outcomes?.forEach(o => {
@@ -142,19 +78,20 @@ app.get("/odds", async (req, res) => {
           }
         });
 
-        // Asian Handicap
-        const handicap = marketMap["handicap"] || {};
+        // --- Asian Handicap (spreads) ---
+        const spreads = marketMap["spreads"] || {};
         const ah = { homeMinus05: 0, awayPlus05: 0 };
-        handicap.outcomes?.forEach(o => {
+        spreads.outcomes?.forEach(o => {
           if (o.point === -0.5 && o.name === home) ah.homeMinus05 = o.price;
           if (o.point === 0.5 && o.name === away) ah.awayPlus05 = o.price;
         });
 
-        // BTTS
+        // --- BTTS ---
         const btts = marketMap["btts"] || {};
         const bttsYes = btts.outcomes?.find(o => o.name === "Yes")?.price || 0;
         const bttsNo = btts.outcomes?.find(o => o.name === "No")?.price || 0;
 
+        // --- Combine & store ---
         if (homeOdds > 1 && awayOdds > 1) {
           const oddsObj = {
             home: homeOdds,
@@ -182,16 +119,4 @@ app.get("/odds", async (req, res) => {
     console.error("🔥 Odds-Fehler:", err);
     res.status(500).json({ error: err.message });
   }
-});
-
-// === STATIC ===
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-// === START ===
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`\n🚀 Server läuft auf http://localhost:${PORT}`);
-  console.log(`⚽ TheOddsAPI aktiv: KEY-FIX + 1X2 + O/U + AH + BTTS + Fallback`);
 });
