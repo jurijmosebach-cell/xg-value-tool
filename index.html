@@ -3,28 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xG Value Tool ⚽</title>
-  <link rel="stylesheet" href="styles.css" />
+  <title>Pre-Match Value & xG Tool</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
-    <h1>⚽ xG Value Tool — Fixtures, Quoten & Torschützen</h1>
+    <h1>Pre-Match Value & xG Tool</h1>
     <div class="controls">
-      <label for="dateInput">📅 Datum wählen:</label>
-      <input type="date" id="dateInput" />
+      <input type="date" id="match-date" />
+      <input type="number" id="filter-value" min="0" step="0.01" placeholder="Min Value" value="0.15" />
+      <select id="league-select">
+        <option value="all">Alle Ligen</option>
+        <option value="Premier_League">Premier League</option>
+        <option value="Bundesliga">Bundesliga</option>
+        <option value="La_Liga">La Liga</option>
+        <option value="Serie_A">Serie A</option>
+        <option value="Ligue_1">Ligue 1</option>
+        <option value="UEFA_Champions_League">Champions League</option>
+        <option value="UEFA_Europa_League">Europa League</option>
+        <option value="UEFA_Conference_League">Conference League</option>
+      </select>
+      <button id="refresh">Aktualisieren</button>
+      <button id="toggle-sample">Beispieldaten</button>
     </div>
+    <div id="status"></div>
   </header>
-
   <main>
-    <div id="fixturesContainer" class="fixtures-container">
-      <p>⏳ Lade Spiele...</p>
-    </div>
+    <div id="match-list" class="match-list"></div>
   </main>
-
-  <footer>
-    <p>v3.1 — powered by API-FOOTBALL & TheOddsAPI</p>
-  </footer>
-
+  <footer><small>© 2025 Pre-Match Value & xG Tool | TheOddsAPI aktiv</small></footer>
   <script src="app.js"></script>
 </body>
 </html>
