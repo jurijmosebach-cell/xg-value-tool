@@ -1,9 +1,8 @@
 {
   "name": "xg-value-tool",
   "version": "1.0.0",
-  "description": "XG Value Tool mit API-Football & TheOddsAPI",
+  "description": "XG Value Tool mit API-Football",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
