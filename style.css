@@ -1,139 +1,184 @@
+/* ===== Global ===== */
 body {
-  background: #202330;
-  color: #e7f5e9;
-  font-family: 'Segoe UI', Verdana, Geneva, Tahoma, sans-serif;
+  background: #15181b;
+  color: #f1f2f5;
+  font-family: 'Segoe UI', Arial, sans-serif;
   margin: 0;
-  padding: 0 0 3em 0;
+  padding: 0;
 }
-
-h1 {
-  color: #20df97;
-  text-shadow: 0 2px 10px #1118;
-  font-size: 2rem;
-  font-weight: 800;
-  margin: 2rem 1rem 1.5rem 1rem;
-  word-spacing: 0.18em;
-  letter-spacing: 0.02em;
-}
-
-label {
-  margin: 0 1.5em 0 .5em;
-  font-size: 1.07em;
-  letter-spacing: 0.01em;
-}
-
-input[type="date"],
-select {
-  padding: 0.3em 0.5em;
-  border-radius: 6px;
-  border: 1px solid #305464;
-  background: #172129;
-  color: #aef8e1;
-  font-size: 1em;
-}
-
-button {
-  padding: 0.36em 1.14em;
-  border-radius: 6px;
+input, button {
+  font-size: 16px;
+  background: #22282d;
+  color: #fafbfc;
   border: none;
-  background: linear-gradient(90deg, #15bc58 60%, #009ea4 100%);
-  color: #fff;
-  font-weight: bold;
-  font-size: 1em;
-  margin-left: 1em;
-  box-shadow: 0 2px 7px #11ab4861;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin: 5px 0;
+  box-sizing: border-box;
+}
+button {
   cursor: pointer;
-  transition: background .2s;
+  background: linear-gradient(90deg, #19e378 30%, #29a9ff 80%);
+  color: #17181b;
+  transition: background 0.2s;
+  font-weight: 500;
 }
 button:hover {
-  background: linear-gradient(90deg, #009ea4 30%, #15bc58 100%);
-  color: #e7f5e9;
+  background: linear-gradient(90deg, #29a9ff 20%, #ff4a58 90%);
+  color: #fff;
 }
 
-#games {
-  max-width: 880px;
-  margin: 2.7rem auto 4em auto;
-  padding: 0 1em;
+/* ===== Layout ===== */
+#app {
+  max-width: 820px;
+  margin: 32px auto 16px auto;
+  padding: 0 12px;
+}
+#match-list {
+  margin-top: 24px;
 }
 
-.card {
-  background: rgba(16,18,36,0.98);
-  margin: 1.5em 0 2em 0;
-  border-radius: 12px;
-  border: 1.7px solid #276d62;
-  box-shadow: 0 4px 28px #13262423;
-  padding: 1.7em 1.5em 1.2em 1.5em;
-  transition: box-shadow .15s;
+/* ===== Status/Statistik ===== */
+#status, #statbox {
+  font-size: 18px;
+  margin: 11px 0 0 0;
+  font-weight: 500;
+  color: #93d6ff;
 }
-
-.card:hover {
-  box-shadow: 0 0 0 3px #1fc08c55, 0 8px 40px #1326242b;
-}
-
-.headline {
-  font-size: 1.21em;
-  font-weight: 600;
-  margin-bottom: .38em;
-  letter-spacing: 0.01em;
-}
-.liga {
-  color: #7cf9cf;
-  background: linear-gradient(90deg, #174a37 30%, #0e2b2d 85%);
-  border-radius: 5px;
-  font-weight: 700;
-  font-size: .97em;
-  padding: 0.12em 0.65em;
-  margin-left: 1em;
-  box-shadow: 0 1px 7px #1fc08c24 inset;
-}
-
-.value {
-  padding: .20em .8em;
-  border-radius: 6px;
-  font-family: "Segoe UI", Arial, sans-serif;
-  font-weight: 600;
-  font-size: 1.04em;
+#statbox {
+  color: #99e;
+  font-size: 16px;
+  background: #22282d;
+  border-radius: 7px;
+  padding: 6px 14px;
   display: inline-block;
 }
-.value.green   { background:#19e378; color:#1a2d21; border:1.1px solid #20df97; }
-.value.yellow  { background:#ffe56c; color:#212014; border: 1.1px solid #eab138;}
-.value.red     { background: #ff4a58; color: #fff; border: 1.1px solid #a22a34;}
 
-.xginfo {
-  color: #93e9f3;
-  font-size: .99em;
-  margin-bottom: 0.57em;
+/* ===== Match-Karten ===== */
+.match-card {
+  background: #22282d;
+  border-radius: 9px;
+  margin: 17px 0;
+  box-shadow: 0 2px 11px 0 #12161b50;
+  padding: 13px 19px 14px 19px;
+  transition: transform 0.08s;
+  border: 1px solid #222e3d;
+  position: relative;
+}
+.match-card:hover {
+  transform: scale(1.025);
+  box-shadow: 0 4px 20px #19e37830;
 }
 
-.scorers {
-  color: #ffe47e;
-  background: #5e4a1d27;
+.match-header {
+  font-size: 22px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 5px;
+}
+.league {
+  font-size: 15px;
+  color: #39f0b8;
+  background: #232b30;
+  padding: 2px 10px;
+  border-radius: 8px;
+  margin-left: auto;
+  font-weight: 500;
+}
+
+.odds {
+  font-size: 17px;
+  margin-top: 8px;
+  margin-bottom: 5px;
+  color: #f3c78a;
+}
+.odds div {
+  margin-bottom: 2px;
+}
+
+/* ===== Teamlogos ===== */
+.teamlogo {
+  height: 27px;
+  width: 27px;
+  vertical-align: middle;
+  margin: 0 7px 0 4px;
+  border-radius: 50%;
+  background: #444;
+  border: 2px solid #232b30;
+  box-shadow: 0 1px 5px #2228;
+}
+
+@media (max-width: 600px) {
+  .match-header { font-size: 17px; }
+  .league { font-size: 11px; padding: 2px 6px;}
+  .teamlogo { height: 21px; width: 21px;}
+}
+
+/* ===== Value-Balken inkl. Icon & Text ===== */
+.valuebar {
+  position: relative;
+  height: 20px;
+  background: #232b22;
+  border-radius: 9px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.valuefill {
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%;
+  border-radius: 9px;
+}
+.valuefill.green  { background: #19e378; }
+.valuefill.yellow { background: #ffe56c; }
+.valuefill.red    { background: #ff4a58; }
+
+.valueicon {
+  position: absolute;
+  left: 8px;
+  top: 2px;
+  font-size: 17px;
+}
+.valuetxt {
+  position: absolute;
+  right: 12px;
+  top: 2px;
+  font-weight: bold;
+  font-size: 15px;
+  color: #fff;
+  text-shadow: 0 1px 7px #2226;
+}
+
+/* ===== Save-Button Value-Tipp ===== */
+.save-value-btn {
+  background: linear-gradient(90deg, #39f0b8 20%, #ffe56c 90%);
+  color: #161a1b;
   border-radius: 6px;
-  padding: .5em .7em .35em .7em;
-  font-size: 1em;
-  margin-top: .4em;
+  font-size: 16px;
+  margin-top: 12px;
+  padding: 7px 21px;
+  font-weight: 600;
+  border: none;
+  box-shadow: 0 2px 8px #19e37840;
+  transition: background 0.17s, color 0.17s;
+}
+.save-value-btn:hover {
+  background: linear-gradient(90deg, #ffe56c 30%, #ff4a58 90%);
+  color: #fff;
 }
 
-hr {
-  border: 0;
-  border-top: 1px solid #44506b;
-  margin: .9em 0 .7em 0;
-  opacity: .44;
+/* ===== Scrollbar für Matchliste ===== */
+#match-list {
+  overflow-y: auto;
+  scrollbar-color: #29a9ff #222e3d;
+  scrollbar-width: thin;
 }
 
-@media (max-width: 700px) {
-  h1 {font-size: 1.35em; margin: 1.5em 1em 1.2em;}
-  #games { padding: 0 .3em;}
-  .card { padding: 1.1em .7em .8em .7em; }
-  label,input,select,button { font-size: .97em;}
-}
-
-/* Leichter Glow für grüne Value-Hits */
-.value.green {
-  box-shadow: 0 0 5px 2px #09b76e44;
-  animation: valflash .7s alternate infinite;
-}
-@keyframes valflash {
-  from {box-shadow: 0 0 8px 2px #09b76e44;}
-  to   {box-shadow: 0 0 13px 4px #4fffbe90;}
+/* ===== Responsive für Mobile ===== */
+@media (max-width: 480px) {
+  #app { padding: 0 1vw; }
+  .match-card { padding: 11px 7px; }
+  .match-header { font-size: 15px; }
 }
