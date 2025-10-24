@@ -1,286 +1,86 @@
 <!DOCTYPE html>
-<html lang="de">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>xG Value Tool – Dashboard ⚽</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>xG Value Tool PRO</title>
+  <meta charset="utf-8">
   <style>
-    body {
-      font-family: "Inter", sans-serif;
-      background: #0e0e10;
-      color: #fff;
-      margin: 0;
-      padding: 0;
-      text-align: center;
-    }
-    header {
-      background: linear-gradient(90deg, #2563eb, #1e3a8a);
-      padding: 20px;
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-    }
-    h1 { margin: 0; font-size: 1.8rem; }
-    #controls {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin: 20px auto;
-    }
-    input, select, button {
-      padding: 8px 12px;
-      border-radius: 8px;
-      border: none;
-      font-size: 1rem;
-    }
-    button {
-      background: #2563eb;
-      color: #fff;
-      cursor: pointer;
-      transition: 0.3s;
-    }
-    button:hover { background: #1d4ed8; }
-    #status {
-      margin: 10px;
-      font-size: 0.95rem;
-      opacity: 0.8;
-    }
-    #match-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-      padding: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .match-card {
-      background: #1e1e22;
-      border-radius: 16px;
-      padding: 15px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      transition: transform 0.3s, box-shadow 0.3s;
-    }
-    .match-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-    }
-    .match-header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .teams {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-    .teams img {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-    }
-    .vs { color: #888; }
-    .league {
-      font-size: 0.8rem;
-      color: #aaa;
-    }
-    .xg-info {
-      margin-top: 10px;
-      font-size: 0.9rem;
-      border-radius: 12px;
-      padding: 10px;
-      transition: background 0.3s;
-    }
-    .value-high { background: rgba(34,197,94,0.15); border: 1px solid #22c55e; }
-    .value-mid { background: rgba(234,179,8,0.15); border: 1px solid #eab308; }
-    .value-low { background: rgba(239,68,68,0.15); border: 1px solid #ef4444; }
-    #top5 {
-      max-width: 600px;
-      margin: 30px auto;
-      background: #1a1a1d;
-      border-radius: 16px;
-      padding: 15px;
-      text-align: left;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.5);
-    }
-    #top5 h2 {
-      text-align: center;
-      margin-bottom: 10px;
-      font-size: 1.3rem;
-      color: #22c55e;
-    }
-    #top5 ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    #top5 li {
-      padding: 6px 0;
-      border-bottom: 1px solid #333;
-      font-size: 0.95rem;
-    }
-    footer {
-      margin-top: 40px;
-      padding: 20px;
-      font-size: 0.8rem;
-      color: #777;
-    }
+    :root { --bg: #111; --text: #fff; --accent: #0af; --value: #0f0; }
+    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+    h1 { color: var(--accent); text-align: center; }
+    .controls { text-align: center; margin: 20px; }
+    select, input, button { padding: 10px; margin: 5px; font-size: 16px; border-radius: 6px; border: none; }
+    button { background: var(--accent); color: white; cursor: pointer; }
+    button:hover { background: #09f; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #1a1a1a; }
+    th, td { padding: 12px; text-align: center; border: 1px solid #333; }
+    th { background: #222; }
+    .value { color: var(--value); font-weight: bold; }
+    .xg { color: #ff0; }
+    .filter { margin: 10px; text-align: center; }
+    .filter input { width: 300px; padding: 8px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>xG Value Tool – Dashboard ⚽</h1>
-    <p>Automatische Wettwert-Berechnung aus Expected Goals + Quoten</p>
-  </header>
+  <h1>xG Value Tool PRO</h1>
+  <div class="controls">
+    <input type="date" id="date" value="2025-10-25">
+    <button onclick="loadData()">Laden</button>
+  </div>
 
-  <section id="controls">
-    <input type="date" id="dateInput" />
-    <select id="leagueSelect">
-      <option value="">Alle Ligen</option>
-      <option value="Premier_League">Premier League</option>
-      <option value="Bundesliga">Bundesliga</option>
-      <option value="La_Liga">La Liga</option>
-      <option value="Serie_A">Serie A</option>
-      <option value="Ligue_1">Ligue 1</option>
-      <option value="UEFA_Champions_League">Champions League</option>
-      <option value="UEFA_Europa_League">Europa League</option>
-      <option value="UEFA_Conference_League">Conference League</option>
-    </select>
-    <button id="loadBtn">🔄 Daten laden</button>
-  </section>
+  <div class="filter">
+    <input type="text" id="search" placeholder="Suche nach Team..." onkeyup="filterTable()">
+  </div>
 
-  <div id="status">Bitte Datum wählen und auf <b>Daten laden</b> klicken.</div>
-  <section id="top5"></section>
-  <section id="match-list"></section>
-
-  <footer>
-    © 2025 xG Value Tool — powered by TheOddsAPI & API-Football
-  </footer>
+  <div id="result"></div>
 
   <script>
-    const dateInput = document.getElementById("dateInput");
-    const leagueSelect = document.getElementById("leagueSelect");
-    const loadBtn = document.getElementById("loadBtn");
-    const matchList = document.getElementById("match-list");
-    const status = document.getElementById("status");
-    const top5Box = document.getElementById("top5");
+    async function loadData() {
+      const date = document.getElementById('date').value;
+      const [odds, fixtures] = await Promise.all([
+        fetch(`/odds?date=${date}`).then(r => r.json()),
+        fetch(`/fixtures?date=${date}`).then(r => r.json())
+      ]);
 
-    const today = new Date().toISOString().slice(0, 10);
-    dateInput.value = today;
+      let html = `<table><tr>
+        <th>Spiel</th>
+        <th>xG</th>
+        <th>1X2</th>
+        <th>Fair</th>
+        <th>Value</th>
+        <th>Over 2.5</th>
+        <th>BTTS</th>
+        <th>Torschützen</th>
+      </tr>`;
 
-    loadBtn.addEventListener("click", async () => {
-      const date = dateInput.value;
-      if (!date) return alert("Bitte ein Datum wählen.");
-
-      status.textContent = "⏳ Lade Daten...";
-      matchList.innerHTML = "";
-      top5Box.innerHTML = "";
-
-      try {
-        const [oddsRes, fixturesRes] = await Promise.all([
-          fetch(`/odds?date=${date}`),
-          fetch(`/fixtures?date=${date}`)
-        ]);
-        const oddsData = await oddsRes.json();
-        const fixturesData = await fixturesRes.json();
-        const fixtures = fixturesData.response || [];
-
-        if (!fixtures.length) {
-          status.textContent = "Keine Spiele gefunden.";
-          return;
-        }
-
-        const valueList = [];
-        fixtures.forEach(fix => {
-          const home = fix.teams.home.name;
-          const away = fix.teams.away.name;
-          const league = fix.league.name;
-
-          if (leagueSelect.value && fix.league.name !== leagueSelect.value.replaceAll("_", " ")) return;
-
-          const key = `${home} vs ${away}`;
-          const odds = oddsData[key];
-          if (!odds) return;
-
-          const homeVal = calcValue(odds.home);
-          const awayVal = calcValue(odds.away);
-          const topVal = Math.max(homeVal, awayVal);
-          valueList.push({ match: key, league, value: topVal });
-        });
-
-        valueList.sort((a, b) => b.value - a.value);
-        const top5 = valueList.slice(0, 5);
-
-        if (top5.length > 0) {
-          const ul = document.createElement("ul");
-          ul.innerHTML = top5.map(t => `<li><b>${t.match}</b> (${t.league}) — Value: <span style="color:#22c55e">${t.value.toFixed(2)}</span></li>`).join("");
-          top5Box.innerHTML = "<h2>🔥 Top 5 Value Matches</h2>";
-          top5Box.appendChild(ul);
-        }
-
-        status.textContent = `📊 ${fixtures.length} Spiele geladen`;
-
-        fixtures.forEach(fix => {
-          const home = fix.teams.home.name;
-          const away = fix.teams.away.name;
-          const league = fix.league.name;
-          const key = `${home} vs ${away}`;
-          const odds = oddsData[key];
-
-          const card = document.createElement("div");
-          card.className = "match-card";
-
-          const header = document.createElement("div");
-          header.className = "match-header";
-          header.innerHTML = `
-            <div class="teams">
-              <img src="${fix.teams.home.logo}" alt="${home}">
-              <span>${home}</span>
-              <span class="vs">vs</span>
-              <span>${away}</span>
-              <img src="${fix.teams.away.logo}" alt="${away}">
-            </div>
-            <div class="league">${league}</div>
-          `;
-
-          const info = document.createElement("div");
-          info.className = "xg-info";
-
-          if (odds) {
-            const hv = calcValue(odds.home);
-            const av = calcValue(odds.away);
-            info.classList.add(
-              hv > 0.5 || av > 0.5 ? "value-high" :
-              hv > 0.25 || av > 0.25 ? "value-mid" : "value-low"
-            );
-            info.innerHTML = `
-              <b>1X2:</b> ${odds.home} / ${odds.away}<br>
-              <b>Over 2.5:</b> ${odds.over25 || "-"} | <b>BTTS:</b> ${odds.bttsYes || "-"}<br>
-              <b>Value:</b> ${hv.toFixed(2)} / ${av.toFixed(2)}
-            `;
-          } else {
-            info.classList.add("value-low");
-            info.innerHTML = "<i>Keine Quoten</i>";
-          }
-
-          card.appendChild(header);
-          card.appendChild(info);
-          matchList.appendChild(card);
-        });
-
-      } catch (err) {
-        console.error(err);
-        status.textContent = "⚠️ Fehler beim Laden.";
-      }
-    });
-
-    function calcValue(odds) {
-      if (!odds || odds <= 1) return 0;
-      return Math.max(0, (odds - 1.5) / 2);
+      Object.entries(odds).forEach(([key, data]) => {
+        const scorers = data.topScorers.map(s => `${s.player} (${s.odds})`).join('<br>') || '-';
+        html += `<tr>
+          <td><b>${key}</b></td>
+          <td class="xg">${data.xg.home} | ${data.xg.away} <small>(${data.xg.total})</small></td>
+          <td>${data.home} | - | ${data.away}</td>
+          <td>${data.fair.home} | - | ${data.fair.away}</td>
+          <td class="value">${data.value.home} ${data.value.away} ${data.value.over}</td>
+          <td>${data.over25 || '-'}</td>
+          <td>${data.bttsYes || '-'}</td>
+          <td>${scorers}</td>
+        </tr>`;
+      });
+      html += `</table>`;
+      document.getElementById('result').innerHTML = html;
     }
+
+    function filterTable() {
+      const term = document.getElementById('search').value.toLowerCase();
+      const rows = document.querySelectorAll('table tr');
+      rows.forEach((row, i) => {
+        if (i === 0) return;
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(term) ? '' : 'none';
+      });
+    }
+
+    // Auto-load today
+    loadData();
   </script>
 </body>
 </html>
