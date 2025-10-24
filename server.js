@@ -1,4 +1,4 @@
-// server.js — STABIL FINAL V4 | FIXTURES + ODDS + TORSCHÜTZEN + FALLBACK
+// server.js — STABIL FINAL V5 | FREE-TIER-KOMPATIBEL + TORSCHÜTZEN NUR BEI PREMIUM
 
 import express from "express";
 import fetch from "node-fetch";
@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// === Pfade korrekt setzen ===
+// === Pfade ===
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(__dirname));
@@ -31,179 +31,201 @@ const LEAGUE_TO_SPORT = {
   "UEFA_Conference_League": "soccer_uefa_conference_league"
 };
 
+// === GÜLTIGE MÄRKTE ===
+const FREE_MARKETS = "h2h,totals,btts";
+const PREMIUM_MARKETS = "player_goalscorer";
+
+// === SAMPLE DATEN (nur bei echtem Totalausfall) ===
+const SAMPLE_ODDS = {
+  "Manchester City vs Arsenal": {
+    home: 1.95,
+    away: 3.80,
+    over25: 1.75,
+    under25: 2.10,
+    bttsYes: 1.72,
+    bttsNo: 2.15,
+    topScorers: [
+      { player: "Haaland", odds: 1.85 },
+      { player: "Saka", odds: 2.60 }
+    ]
+  },
+  "Bayern Munich vs Real Madrid": {
+    home: 2.10,
+    away: 3.30,
+    over25: 1.68,
+    under25: 2.25,
+    bttsYes: 1.65,
+    bttsNo: 2.30,
+    topScorers: [
+      { player: "Kane", odds: 1.90 },
+      { player: "Vinícius Júnior", odds: 2.50 }
+    ]
+  }
+};
+
 // === /fixtures ===
 app.get("/fixtures", async (req, res) => {
-  const date = req.query.date;
-  if (!API_FOOTBALL_KEY) {
-    console.error("❌ API_FOOTBALL_KEY fehlt!");
-    return res.status(500).json({ error: "API_FOOTBALL_KEY fehlt" });
-  }
+  const { date } = req.query;
+  if (!API_FOOTBALL_KEY) return res.status(500).json({ error: "API_FOOTBALL_KEY fehlt" });
+  if (!date) return res.status(400).json({ error: "Datum erforderlich" });
 
   try {
-    console.log(`📅 Hole Fixtures für ${date}...`);
+    console.log(`Hole Fixtures für ${date}...`);
+00
     const resp = await fetch(`https://v3.football.api-sports.io/fixtures?date=${date}`, {
       headers: { "x-apisports-key": API_FOOTBALL_KEY }
     });
 
-    console.log("🔁 Status Fixtures:", resp.status);
-
     if (!resp.ok) {
       const msg = await resp.text();
-      console.error(`⚠️ Fixtures API Fehler [${resp.status}]: ${msg}`);
-      return res.status(500).json({ error: msg });
+      console.error(`Fixtures Fehler [${resp.status}]: ${msg}`);
+      return res.status(resp.status).json({ error: msg });
     }
 
     const data = await resp.json();
     res.json(data);
   } catch (err) {
-    console.error("🔥 Fixtures Fehler:", err);
+    console.error("Fixtures Crash:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// === /odds — stabil + Torschützen + Fallback ===
+// === /odds — ROBUST & FREE-TIER-SICHER ===
 app.get("/odds", async (req, res) => {
-  const date = req.query.date;
-  if (!ODDS_API_KEY) {
-    console.error("❌ ODDS_API_KEY fehlt!");
-    return res.status(500).json({ error: "ODDS_API_KEY fehlt" });
-  }
+  const { date } = req.query;
+  if (!ODDS_API_KEY) return res.status(500).json({ error: "ODDS_API_KEY fehlt" });
+  if (!date) return res.status(400).json({ error: "Datum erforderlich" });
 
   const oddsMap = {};
-  const sampleOdds = {
-    "Manchester City vs Arsenal": {
-      home: 1.95,
-      away: 3.80,
-      over25: 1.75,
-      under25: 2.10,
-      bttsYes: 1.72,
-      bttsNo: 2.15,
-      topScorers: [
-        { player: "Haaland", odds: 1.85 },
-        { player: "Saka", odds: 2.60 }
-      ]
-    },
-    "Bayern Munich vs Real Madrid": {
-      home: 2.10,
-      away: 3.30,
-      over25: 1.68,
-      under25: 2.25,
-      bttsYes: 1.65,
-      bttsNo: 2.30,
-      topScorers: [
-        { player: "Kane", odds: 1.90 },
-        { player: "Vinícius Júnior", odds: 2.50 }
-      ]
-    }
-  };
 
-  try {
-    for (const [leagueValue, sportKey] of Object.entries(LEAGUE_TO_SPORT)) {
-      const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?apiKey=${ODDS_API_KEY}&regions=eu,uk,us&markets=h2h,totals,btts,player_goalscorer&dateFormat=iso&oddsFormat=decimal`;
+  // === 1. Versuch: Free Märkte (immer verfügbar) ===
+  let hasFreeData = false;
 
-      console.log("\n📡 Anfrage an:", sportKey);
-      console.log("📅 Datum:", date);
+  for (const [league, sportKey] of Object.entries(LEAGUE_TO_SPORT)) {
+    const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds`
+      + `?apiKey=${ODDS_API_KEY}`
+      + `&regions=eu,uk`
+      + `&markets=${FREE_MARKETS}`
+      + `&dateFormat=iso`
+      + `&oddsFormat=decimal`;
 
+    try {
       const resp = await fetch(url);
-      console.log("🔁 Status:", resp.status);
-
       if (!resp.ok) {
         const msg = await resp.text();
-        console.error(`⚠️ API-Fehler [${resp.status}] ${sportKey}: ${msg}`);
+        console.warn(`Free Markets [${resp.status}] ${sportKey}: ${msg}`);
         continue;
       }
 
       const events = await resp.json();
-      console.log(`✅ ${events.length} Events empfangen für ${sportKey}`);
+      console.log(`${events.length} Events (Free) für ${sportKey}`);
 
       for (const event of events) {
-        const eventDate = new Date(event.commence_time).toISOString().slice(0, 10);
-        if (!eventDate.startsWith(date)) continue;
+        if (!event.commence_time.startsWith(date)) continue;
 
         const home = event.home_team?.trim();
         const away = event.away_team?.trim();
         if (!home || !away) continue;
 
-        const bookmaker =
-          event.bookmakers?.find(b => b.key === "pinnacle") || event.bookmakers?.[0];
+        const bookmaker = event.bookmakers?.find(b => b.key === "pinnacle") || event.bookmakers?.[0];
         if (!bookmaker) continue;
 
-        // --- Marktzuordnung tolerant ---
-        const marketMap = {};
-        bookmaker.markets.forEach(m => (marketMap[m.key] = m));
+        const marketMap = Object.fromEntries(bookmaker.markets.map(m => [m.key, m]));
 
-        function findMarket(maps, keyPart) {
-          return Object.values(maps).find(m => m.key.includes(keyPart)) || {};
-        }
+        const h2h = marketMap["h2h"];
+        const totals = marketMap["totals"];
+        const btts = marketMap["btts"];
 
-        // 1X2
-        const h2h = findMarket(marketMap, "h2h");
+        const homeOdds = h2h?.outcomes?.find(o => o.name === home)?.price || 0;
+        const awayOdds = h2h?.outcomes?.find(o => o.name === away)?.price || 0;
 
-        // Over/Under
-        const totals = findMarket(marketMap, "totals");
+        const over25 = totals?.outcomes?.find(o => o.point === 2.5 && o.name === "Over")?.price || 0;
+        const under25 = totals?.outcomes?.find(o => o.point === 2.5 && o.name === "Under")?.price || 0;
 
-        // BTTS
-        const btts = findMarket(marketMap, "btts");
+        const bttsYes = btts?.outcomes?.find(o => o.name === "Yes")?.price || 0;
+        const bttsNo = btts?.outcomes?.find(o => o.name === "No")?.price || 0;
 
-        // Torschützen (Anytime Goalscorer)
-        const scorers = findMarket(marketMap, "player_goalscorer");
-
-        // --- Quoten extrahieren ---
-        const homeOdds = h2h.outcomes?.find(o => o.name === home)?.price || 0;
-        const awayOdds = h2h.outcomes?.find(o => o.name === away)?.price || 0;
-
-        const overUnder = { over25: 0, under25: 0 };
-        totals.outcomes?.forEach(o => {
-          if (o.point === 2.5) {
-            if (o.name === "Over") overUnder.over25 = o.price;
-            if (o.name === "Under") overUnder.under25 = o.price;
-          }
-        });
-
-        const bttsYes = btts.outcomes?.find(o => o.name === "Yes")?.price || 0;
-        const bttsNo = btts.outcomes?.find(o => o.name === "No")?.price || 0;
-
-        // --- Top-3 Torschützen extrahieren ---
-        const topScorers = [];
-        if (scorers?.outcomes?.length) {
-          const sorted = scorers.outcomes
-            .filter(o => o.price > 1)
-            .sort((a, b) => a.price - b.price)
-            .slice(0, 3)
-            .map(o => ({ player: o.name, odds: o.price }));
-          topScorers.push(...sorted);
-        }
-
-        if (homeOdds > 1 && awayOdds > 1) {
-          const oddsObj = {
+        if (homeOdds > 1 || awayOdds > 1) {
+          hasFreeData = true;
+          const key = `${home} vs ${away}`;
+          oddsMap[key] = oddsMap[key] || {
             home: homeOdds,
             away: awayOdds,
-            ...overUnder,
+            over25,
+            under25,
             bttsYes,
             bttsNo,
-            topScorers
+            topScorers: []
           };
-          const key1 = `${home} vs ${away}`;
-          const key2 = `${away} vs ${home}`;
-          oddsMap[key1] = oddsObj;
-          oddsMap[key2] = oddsObj;
         }
       }
+    } catch (err) {
+      console.error(`Free Markets Crash ${sportKey}:`, err.message);
     }
-
-    if (Object.keys(oddsMap).length === 0) {
-      console.warn("⚠️ Keine Odds gefunden — Fallback auf Beispiel-Daten.");
-      return res.json(sampleOdds);
-    }
-
-    res.json(oddsMap);
-  } catch (err) {
-    console.error("🔥 Odds-Fehler:", err);
-    res.status(500).json({ error: err.message });
   }
+
+  // === 2. Versuch: Torschützen NUR bei Premium-Key ===
+  if (ODDS_API_KEY && ODDS_API_KEY.length > 20) { // Hinweis: Premium-Keys sind länger
+    console.log("Premium-Key erkannt → lade Torschützen...");
+    for (const [league, sportKey] of Object.entries(LEAGUE_TO_SPORT)) {
+      const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds`
+        + `?apiKey=${ODDS_API_KEY}`
+        + `&regions=eu,uk`
+        + `&markets=${PREMIUM_MARKETS}`
+        + `&dateFormat=iso`
+        + `&oddsFormat=decimal`;
+
+      try {
+        const resp = await fetch(url);
+        if (resp.status === 422) {
+          console.log(`Torschützen nicht verfügbar für ${sportKey} (Free Tier)`);
+          continue;
+        }
+        if (!resp.ok) {
+          const msg = await resp.text();
+          console.warn(`Premium Markets [${resp.status}] ${sportKey}: ${msg}`);
+          continue;
+        }
+
+        const events = await resp.json();
+        for (const event of events) {
+          if (!event.commence_time.startsWith(date)) continue;
+
+          const home = event.home_team?.trim();
+          const away = event.away_team?.trim();
+          const key = `${home} vs ${away}`;
+          if (!oddsMap[key]) continue;
+
+          const bookmaker = event.bookmakers?.[0];
+          if (!bookmaker) continue;
+
+          const scorers = bookmaker.markets.find(m => m.key === "player_goalscorer");
+          if (scorers?.outcomes?.length) {
+            const top3 = scorers.outcomes
+              .filter(o => o.price > 1)
+              .sort((a, b) => a.price - b.price)
+              .slice(0, 3)
+              .map(o => ({ player: o.name, odds: o.price }));
+
+            oddsMap[key].topScorers = top3;
+          }
+        }
+      } catch (err) {
+        console.error(`Premium Crash ${sportKey}:`, err.message);
+      }
+    }
+  }
+
+  // === Rückgabe ===
+  if (Object.keys(oddsMap).length === 0) {
+    console.warn("Kein einziges Spiel gefunden → Fallback auf Sample-Daten");
+    return res.json(SAMPLE_ODDS);
+  }
+
+  res.json(oddsMap);
 });
 
-// === STATIC ===
+// === STATIC FALLBACK ===
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
@@ -211,6 +233,7 @@ app.get("*", (req, res) => {
 // === START ===
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`\n🚀 Server läuft auf http://localhost:${PORT}`);
-  console.log(`⚽ Odds + Fixtures + Torschützen aktiv!`);
+  console.log(`\nServer läuft auf http://localhost:${PORT}`);
+  console.log(`Free Tier: h2h, totals, btts`);
+  console.log(`Premium: + Torschützen (nur bei gültigem Key)`);
 });
