@@ -1,86 +1,30 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-  <title>xG Value Tool PRO</title>
-  <meta charset="utf-8">
-  <style>
-    :root { --bg: #111; --text: #fff; --accent: #0af; --value: #0f0; }
-    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-    h1 { color: var(--accent); text-align: center; }
-    .controls { text-align: center; margin: 20px; }
-    select, input, button { padding: 10px; margin: 5px; font-size: 16px; border-radius: 6px; border: none; }
-    button { background: var(--accent); color: white; cursor: pointer; }
-    button:hover { background: #09f; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #1a1a1a; }
-    th, td { padding: 12px; text-align: center; border: 1px solid #333; }
-    th { background: #222; }
-    .value { color: var(--value); font-weight: bold; }
-    .xg { color: #ff0; }
-    .filter { margin: 10px; text-align: center; }
-    .filter input { width: 300px; padding: 8px; }
-  </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xG Value Tool ⚽</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <h1>xG Value Tool PRO</h1>
-  <div class="controls">
-    <input type="date" id="date" value="2025-10-25">
-    <button onclick="loadData()">Laden</button>
-  </div>
+  <header>
+    <h1>⚽ xG Value Tool — Fixtures, Quoten & Torschützen</h1>
+    <div class="controls">
+      <label for="dateInput">📅 Datum wählen:</label>
+      <input type="date" id="dateInput" />
+    </div>
+  </header>
 
-  <div class="filter">
-    <input type="text" id="search" placeholder="Suche nach Team..." onkeyup="filterTable()">
-  </div>
+  <main>
+    <div id="fixturesContainer" class="fixtures-container">
+      <p>⏳ Lade Spiele...</p>
+    </div>
+  </main>
 
-  <div id="result"></div>
+  <footer>
+    <p>v3.1 — powered by API-FOOTBALL & TheOddsAPI</p>
+  </footer>
 
-  <script>
-    async function loadData() {
-      const date = document.getElementById('date').value;
-      const [odds, fixtures] = await Promise.all([
-        fetch(`/odds?date=${date}`).then(r => r.json()),
-        fetch(`/fixtures?date=${date}`).then(r => r.json())
-      ]);
-
-      let html = `<table><tr>
-        <th>Spiel</th>
-        <th>xG</th>
-        <th>1X2</th>
-        <th>Fair</th>
-        <th>Value</th>
-        <th>Over 2.5</th>
-        <th>BTTS</th>
-        <th>Torschützen</th>
-      </tr>`;
-
-      Object.entries(odds).forEach(([key, data]) => {
-        const scorers = data.topScorers.map(s => `${s.player} (${s.odds})`).join('<br>') || '-';
-        html += `<tr>
-          <td><b>${key}</b></td>
-          <td class="xg">${data.xg.home} | ${data.xg.away} <small>(${data.xg.total})</small></td>
-          <td>${data.home} | - | ${data.away}</td>
-          <td>${data.fair.home} | - | ${data.fair.away}</td>
-          <td class="value">${data.value.home} ${data.value.away} ${data.value.over}</td>
-          <td>${data.over25 || '-'}</td>
-          <td>${data.bttsYes || '-'}</td>
-          <td>${scorers}</td>
-        </tr>`;
-      });
-      html += `</table>`;
-      document.getElementById('result').innerHTML = html;
-    }
-
-    function filterTable() {
-      const term = document.getElementById('search').value.toLowerCase();
-      const rows = document.querySelectorAll('table tr');
-      rows.forEach((row, i) => {
-        if (i === 0) return;
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(term) ? '' : 'none';
-      });
-    }
-
-    // Auto-load today
-    loadData();
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
