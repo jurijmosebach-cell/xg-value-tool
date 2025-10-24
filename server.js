@@ -141,19 +141,110 @@ app.get("/odds", async (req, res) => {
         });
 
         // --- Asian Handicap (spreads) ---
-        const spreads = marketMap["spreads"] || {};
+   // === /odds — stabil + tolerant + Fallback ===
+app.get("/odds", async (req, res) => {
+  const date = req.query.date;
+  if (!ODDS_API_KEY) {
+    console.error("❌ ODDS_API_KEY fehlt!");
+    return res.status(500).json({ error: "ODDS_API_KEY fehlt" });
+  }
+
+  const oddsMap = {};
+  const sampleOdds = {
+    "Manchester City vs Arsenal": {
+      home: 1.95,
+      away: 3.80,
+      over25: 1.75,
+      under25: 2.10,
+      homeMinus05: 1.90,
+      awayPlus05: 1.95,
+      bttsYes: 1.72,
+      bttsNo: 2.15
+    },
+    "Bayern Munich vs Real Madrid": {
+      home: 2.10,
+      away: 3.30,
+      over25: 1.68,
+      under25: 2.25,
+      homeMinus05: 1.95,
+      awayPlus05: 1.90,
+      bttsYes: 1.65,
+      bttsNo: 2.30
+    }
+  };
+
+  try {
+    for (const [leagueValue, sportKey] of Object.entries(LEAGUE_TO_SPORT)) {
+      const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds?apiKey=${ODDS_API_KEY}&regions=eu,uk,us&markets=h2h,totals,spreads,btts&dateFormat=iso&oddsFormat=decimal`;
+
+      console.log("\n📡 Anfrage an:", sportKey);
+      console.log("📅 Datum:", date);
+
+      const resp = await fetch(url);
+      console.log("🔁 Status:", resp.status);
+
+      if (!resp.ok) {
+        const msg = await resp.text();
+        console.error(`⚠️ API-Fehler [${resp.status}] ${sportKey}: ${msg}`);
+        continue;
+      }
+
+      const events = await resp.json();
+      console.log(`✅ ${events.length} Events empfangen für ${sportKey}`);
+
+      for (const event of events) {
+        const eventDate = new Date(event.commence_time).toISOString().slice(0, 10);
+        if (!eventDate.startsWith(date)) continue;
+
+        const home = event.home_team?.trim();
+        const away = event.away_team?.trim();
+        if (!home || !away) continue;
+
+        const bookmaker =
+          event.bookmakers?.find(b => b.key === "pinnacle") || event.bookmakers?.[0];
+        if (!bookmaker) continue;
+
+        // --- Marktzuordnung tolerant ---
+        const marketMap = {};
+        bookmaker.markets.forEach(m => (marketMap[m.key] = m));
+
+        function findMarket(maps, keyPart) {
+          return Object.values(maps).find(m => m.key.includes(keyPart)) || {};
+        }
+
+        // 1X2
+        const h2h = findMarket(marketMap, "h2h");
+
+        // Over/Under
+        const totals = findMarket(marketMap, "totals");
+
+        // Asian Handicap (spreads oder handicap)
+        const spreads = findMarket(marketMap, "spreads") || findMarket(marketMap, "handicap");
+
+        // BTTS
+        const btts = findMarket(marketMap, "btts");
+
+        // --- Quoten extrahieren ---
+        const homeOdds = h2h.outcomes?.find(o => o.name === home)?.price || 0;
+        const awayOdds = h2h.outcomes?.find(o => o.name === away)?.price || 0;
+
+        const overUnder = { over25: 0, under25: 0 };
+        totals.outcomes?.forEach(o => {
+          if (o.point === 2.5) {
+            if (o.name === "Over") overUnder.over25 = o.price;
+            if (o.name === "Under") overUnder.under25 = o.price;
+          }
+        });
+
         const ah = { homeMinus05: 0, awayPlus05: 0 };
         spreads.outcomes?.forEach(o => {
           if (o.point === -0.5 && o.name === home) ah.homeMinus05 = o.price;
           if (o.point === 0.5 && o.name === away) ah.awayPlus05 = o.price;
         });
 
-        // --- BTTS ---
-        const btts = marketMap["btts"] || {};
         const bttsYes = btts.outcomes?.find(o => o.name === "Yes")?.price || 0;
         const bttsNo = btts.outcomes?.find(o => o.name === "No")?.price || 0;
 
-        // --- Combine & store ---
         if (homeOdds > 1 && awayOdds > 1) {
           const oddsObj = {
             home: homeOdds,
@@ -182,7 +273,7 @@ app.get("/odds", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+  
 // === STATIC ===
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
