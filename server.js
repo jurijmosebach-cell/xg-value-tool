@@ -1,4 +1,4 @@
-// server.js — FUNKTIONIERT 100% → KEIN &date= + RICHTIGER KEY
+// server.js — FIXED VERSION (HTTP 422 behoben)
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -17,6 +17,7 @@ const ODDS_API_KEY = process.env.ODDS_API_KEY;
 if (!ODDS_API_KEY) {
   console.error("FEHLER: ODDS_API_KEY fehlt!");
 }
+
 const PORT = process.env.PORT || 10000;
 
 const LEAGUES = [
@@ -28,7 +29,7 @@ const LEAGUES = [
 ];
 
 function getFlag(team) {
-  const flags = { "England": "gb", "Germany": "de", "Spain": "es", "Italy": "it", "France": "fr" };
+  const flags = { England: "gb", Germany: "de", Spain: "es", Italy: "it", France: "fr" };
   for (const [country, flag] of Object.entries(flags)) {
     if (team.includes(country)) return flag;
   }
@@ -42,14 +43,16 @@ app.get("/api/games", async (req, res) => {
 
   for (const league of LEAGUES) {
     try {
+      // ✅ FIX: 'btts' → 'btts_yes_no'
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
-      
-      // KEIN &date= → KEIN 422!
-      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&dateFormat=iso&oddsFormat=decimal`;
+      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts_yes_no&dateFormat=iso&oddsFormat=decimal`;
 
+      console.log(`→ ${league.name}`);
       const response = await fetch(fullUrl);
+
       if (!response.ok) {
-        console.warn(`HTTP ${response.status} für ${league.name}`);
+        const msg = await response.text();
+        console.warn(`⚠️  HTTP ${response.status} für ${league.name}: ${msg}`);
         continue;
       }
 
@@ -67,7 +70,7 @@ app.get("/api/games", async (req, res) => {
         const book = bookmakers[0];
         const h2h = book.markets?.find(m => m.key === "h2h")?.outcomes || [];
         const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
-        const btts = book.markets?.find(m => m.key === "btts")?.outcomes || [];
+        const btts = book.markets?.find(m => m.key === "btts_yes_no")?.outcomes || [];
 
         const odds = {
           home: h2h.find(o => o.name === home)?.price || 0,
@@ -100,13 +103,16 @@ app.get("/api/games", async (req, res) => {
         };
 
         games.push({
-          home, away, league: league.name,
+          home,
+          away,
+          league: league.name,
           homeLogo: `https://flagcdn.com/48x36/${getFlag(home)}.png`,
           awayLogo: `https://flagcdn.com/48x36/${getFlag(away)}.png`,
-          odds, value,
+          odds,
+          value,
           totalXG: +totalXG.toFixed(2),
           homeXG: +homeXG.toFixed(2),
-          awayXG: +awayXG.toFixed(2)
+          awayXG: +awayXG.toFixed(2),
         });
       }
     } catch (err) {
