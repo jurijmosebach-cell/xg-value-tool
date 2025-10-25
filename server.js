@@ -1,4 +1,4 @@
-// server.js — FERTIG: DATUM IN URL + STABIL + SPIELE FÜR 2025-10-18
+// server.js — 100% FUNKTIONIEREND: KEIN &date= + TESTDATUM
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -36,13 +36,14 @@ function getFlag(team) {
 }
 
 app.get("/api/games", async (req, res) => {
-  const date = req.query.date || "2025-10-18"; // TESTDATUM!
+  const date = req.query.date || "2025-10-18"; // ← Filter im Code!
   const games = [];
 
   for (const league of LEAGUES) {
     try {
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
-      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&date=${date}&dateFormat=iso&oddsFormat=decimal`;
+      // KEIN &date= → KEIN 422!
+      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&dateFormat=iso&oddsFormat=decimal`;
 
       const response = await fetch(fullUrl);
       if (!response.ok) {
@@ -51,12 +52,12 @@ app.get("/api/games", async (req, res) => {
       }
 
       const data = await response.json();
-      if (!Array.isArray(data)) {
-        console.log(`Keine Daten für ${league.name}`);
-        continue;
-      }
+      if (!Array.isArray(data)) continue;
 
       for (const g of data) {
+        // FILTER IM CODE: commence_time muss mit date übereinstimmen
+        if (!g.commence_time?.startsWith(date)) continue;
+
         const home = g.home_team;
         const away = g.away_team;
         const bookmakers = g.bookmakers || [];
