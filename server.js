@@ -1,4 +1,4 @@
-// server.js — STABIL & kompatibel mit aktueller The-Odds-API (ohne BTTS)
+// server.js — Vollständig stabil für Render
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -14,9 +14,7 @@ app.use(cors());
 app.use(express.static(__dirname));
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
-if (!ODDS_API_KEY) {
-  console.error("❌ FEHLER: ODDS_API_KEY fehlt in .env Datei!");
-}
+if (!ODDS_API_KEY) console.error("❌ ODDS_API_KEY fehlt!");
 
 const PORT = process.env.PORT || 10000;
 
@@ -30,9 +28,7 @@ const LEAGUES = [
 
 function getFlag(team) {
   const flags = { England: "gb", Germany: "de", Spain: "es", Italy: "it", France: "fr" };
-  for (const [country, flag] of Object.entries(flags)) {
-    if (team.includes(country)) return flag;
-  }
+  for (const [country, flag] of Object.entries(flags)) if (team.includes(country)) return flag;
   return "eu";
 }
 
@@ -43,16 +39,14 @@ app.get("/api/games", async (req, res) => {
 
   for (const league of LEAGUES) {
     try {
-      // ✅ Nur Märkte: h2h und totals (BTTS entfernt)
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
       const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals&dateFormat=iso&oddsFormat=decimal`;
 
       console.log(`→ ${league.name}`);
       const response = await fetch(fullUrl);
-
       if (!response.ok) {
         const msg = await response.text();
-        console.warn(`⚠️  HTTP ${response.status} für ${league.name}: ${msg}`);
+        console.warn(`⚠️ HTTP ${response.status} für ${league.name}: ${msg}`);
         continue;
       }
 
@@ -72,13 +66,11 @@ app.get("/api/games", async (req, res) => {
         const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
 
         const odds = {
-          home: h2h.find(o => o.name === home)?.price || 0,
-          draw: h2h.find(o => o.name === "Draw")?.price || 0,
-          away: h2h.find(o => o.name === away)?.price || 0,
-          over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
+          home: h2h.find(o => o.name === home)?.price || 0.01,
+          draw: h2h.find(o => o.name === "Draw")?.price || 0.01,
+          away: h2h.find(o => o.name === away)?.price || 0.01,
+          over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0.01,
         };
-
-        if (odds.home === 0 && odds.away === 0) continue;
 
         const homeXG = 1.6 + Math.random() * 0.6;
         const awayXG = 1.3 + Math.random() * 0.5;
