@@ -1,81 +1,54 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<title>xG Value Wetten Tool Europa Top 6</title>
-<style>
-body{background:#222;color:#eee;font-family:system-ui;padding:1em;}
-h1{color:#84e4a9;}
-label{margin:0 1.2em;}
-.card{background:#181a24;margin:1.2em 0;padding:1.2em;border-radius:9px;border:2px solid #373a39;}
-.headline{font-size:1.2em;margin-bottom:.2em;}
-.value{padding:.25em .7em;border-radius:5px;}
-.value.green{background:#15bc58;}
-.value.yellow{background:#ffe25c;color:#222;}
-.value.red{background:#cc4848;}
-.liga{color:#84e4a9;font-weight:bold;}
-hr{border:0;border-bottom:1px solid #313;}
-.scorers{font-size:.99em;color:#ffe47e;}
-.xginfo{color:#b1e6ff;font-size:.97em;}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xG-Value Tool ⚽</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<h1>⚽ xG Value Betting Tool: Europas TOP 6 Ligen</h1>
-<label>Liga:
-  <select id="liga">
-    <option>Alle</option>
-    <option>Premier League</option>
-    <option>Bundesliga</option>
-    <option>La Liga</option>
-    <option>Serie A</option>
-    <option>Ligue 1</option>
-    <option>Champions League</option>
-  </select>
-</label>
-<label>Datum: <input type="date" id="date"></label>
-<button onclick="load()">Laden</button>
-<div id="games"></div>
-<script>
-const ligaSel = document.getElementById('liga');
-document.getElementById('date').value = new Date().toISOString().slice(0,10);
+<body class="bg-gray-100 text-gray-800">
+  <header class="bg-white shadow p-4 flex justify-between items-center">
+    <h1 class="text-xl font-bold text-blue-600">xG Value Tool ⚽</h1>
+    <div>
+      <input id="date" type="date" class="border rounded p-1" />
+      <button onclick="loadOdds()" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">
+        Laden
+      </button>
+    </div>
+  </header>
 
-function getValueClass(value) {
-  if (value >= 0.08) return 'green';
-  if (value >= 0.01) return 'yellow';
-  return 'red';
-}
-function colorValue(value,num) {
-  return `<span class="value ${getValueClass(value)}">${num} (Value: ${value>=0?'+':'-'}${(value*100).toFixed(1)}%)</span>`;
-}
+  <main class="p-4">
+    <div class="overflow-x-auto bg-white rounded-lg shadow">
+      <table class="min-w-full border-collapse">
+        <thead class="bg-blue-100">
+          <tr>
+            <th class="p-2 text-left">Liga</th>
+            <th class="p-2 text-left">Datum</th>
+            <th class="p-2 text-left">Heim</th>
+            <th class="p-2 text-left">Auswärts</th>
+            <th class="p-2">1</th>
+            <th class="p-2">Value 1</th>
+            <th class="p-2">X</th>
+            <th class="p-2">Value X</th>
+            <th class="p-2">2</th>
+            <th class="p-2">Value 2</th>
+            <th class="p-2">Over 1.5</th>
+            <th class="p-2">Value O1.5</th>
+            <th class="p-2">Over 2.5</th>
+            <th class="p-2">Value O2.5</th>
+            <th class="p-2">Over 3.5</th>
+            <th class="p-2">Value O3.5</th>
+          </tr>
+        </thead>
+        <tbody id="oddsTableBody"></tbody>
+      </table>
+    </div>
+  </main>
 
-async function load() {
-  const date = document.getElementById('date').value;
-  const liga = ligaSel.value;
-  document.getElementById('games').innerHTML = 'Lädt...';
-  const res = await fetch(`/api/allvalue?date=${date}`);
-  const { games } = await res.json();
-  let filtered = liga === 'Alle' ? games : games.filter(g=>g.liga===liga);
-  let html = '';
-  if (!filtered.length) html = '<i>Keine Spiele gefunden!</i>';
-  for (const g of filtered) {
-    html += `<div class="card">
-      <div class="headline">${g.home} vs ${g.away} <span class="liga">(${g.liga})</span><br>
-        🕒 ${new Date(g.start).toLocaleString()}</div>
-        <div class="xginfo">Erwartete Tore: <b>${g.xg.home_xg}</b> : <b>${g.xg.away_xg}</b> (Summe: <b>${(parseFloat(g.xg.home_xg)+parseFloat(g.xg.away_xg)).toFixed(2)}</b>)</div>
-      <b>1X2 Wetten:</b><br>
-      ${g.h2h.map(o=>`${o.name}: ${colorValue(o.value, o.quote)} (Chance: ${o.prob})`).join('<br>')}
-      <hr>
-      <b>Über/Unter:</b><br>
-      ${!g.ou.length ? 'Keine Daten.' : g.ou.map(o=>`${o.name}: ${colorValue(o.value,o.quote)} (Chance: ${o.prob})`).join('<br>') }
-      <hr>
-      <div class="scorers"><b>Top Torschützen Tipps:</b>
-      ${g.scorers && g.scorers.length ? g.scorers.map(s=>`${s.name} (${s.team}, ${s.goals} Saisontore)`).join(' • ') : 'Keine Tipps.'}
-      </div>
-    </div>`;
-  }
-  document.getElementById('games').innerHTML = html;
-}
-load();
-</script>
+  <footer class="text-center text-xs text-gray-500 mt-6 pb-3">
+    © 2025 xG Value Tool | Powered by TheOddsAPI
+  </footer>
+
+  <script src="app.js"></script>
 </body>
 </html>
