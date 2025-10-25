@@ -103,17 +103,29 @@ app.get("/api/games", async (req, res) => {
     }
   }
 
+  // Top 7 Value Tipps
   const topGames = games
     .map(g => ({ ...g, maxValue: Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25) }))
-    .sort((a, b) => b.maxValue - a.maxValue)
-    .slice(0, 7);
+    .sort((a,b) => b.maxValue - a.maxValue)
+    .slice(0,7);
 
-  res.json({ response: games, topGames });
+  // Top 3 Favoriten basierend auf xG
+  const topFavorites = games
+    .map(g => {
+      const diff = g.homeXG - g.awayXG;
+      const fav = diff > 0.2 ? g.home : diff < -0.2 ? g.away : "Unentschieden";
+      const prob = diff > 0.2 ? g.homeXG : diff < -0.2 ? g.awayXG : 0;
+      return { ...g, favorite: fav, prob: +prob.toFixed(2) };
+    })
+    .sort((a,b) => b.prob - a.prob)
+    .slice(0,3);
+
+  res.json({ response: games, topGames, topFavorites });
 });
 
-app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+app.get("*", (req,res) => res.sendFile(path.join(__dirname,"index.html")));
 
-app.listen(PORT, () => {
+app.listen(PORT,()=> {
   console.log(`LIVE: https://xg-value-tool.onrender.com`);
-  console.log(`Heute: ${new Date().toISOString().slice(0, 10)}`);
+  console.log(`Heute: ${new Date().toISOString().slice(0,10)}`);
 });
