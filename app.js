@@ -3,9 +3,11 @@ const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
 const dateInput = document.getElementById("match-date");
 
+// Heute als Standard
 const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
 
+// Events
 refreshBtn.addEventListener("click", loadMatches);
 loadMatches();
 
@@ -28,11 +30,42 @@ async function loadMatches() {
       return;
     }
 
+    // Top 7 Value Tipps
+    const topValue = [...games]
+      .map(g => {
+        const bestValue = Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25, g.value.under25);
+        const market = bestValue === g.value.home ? "1" :
+                       bestValue === g.value.draw ? "X" :
+                       bestValue === g.value.away ? "2" :
+                       bestValue === g.value.over25 ? "O2.5" : "U2.5";
+        return { ...g, bestValue, market };
+      })
+      .sort((a, b) => b.bestValue - a.bestValue)
+      .slice(0, 7);
+
+    const topValueDiv = document.createElement("div");
+    topValueDiv.className = "mb-6 p-4 bg-gray-900 rounded-xl";
+    topValueDiv.innerHTML = "<h2 class='text-lg font-bold text-cyan-400 mb-2'>Top 7 Value Tipps</h2>" +
+      topValue.map(g => `${g.home} vs ${g.away} → ${g.market} ${(g.bestValue*100).toFixed(1)}% Value`).join("<br>");
+    matchList.appendChild(topValueDiv);
+
+    // Top 3 xG Favoriten
+    const topXG = [...games]
+      .map(g => ({ ...g, totalXG: g.homeXG + g.awayXG }))
+      .sort((a, b) => b.totalXG - a.totalXG)
+      .slice(0, 3);
+
+    const topXGDiv = document.createElement("div");
+    topXGDiv.className = "mb-6 p-4 bg-gray-900 rounded-xl";
+    topXGDiv.innerHTML = "<h2 class='text-lg font-bold text-green-400 mb-2'>Top 3 Favoriten (xG)</h2>" +
+      topXG.map(g => `${g.home} vs ${g.away} → ${(g.totalXG).toFixed(2)} xG`).join("<br>");
+    matchList.appendChild(topXGDiv);
+
+    // Spiele
     games.forEach(g => {
       const card = document.createElement("div");
       card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-6";
 
-      // Wahrscheinlichkeiten
       const homeVal = g.value.home * 100;
       const drawVal = g.value.draw * 100;
       const awayVal = g.value.away * 100;
@@ -59,7 +92,7 @@ async function loadMatches() {
         </div>
 
         <div class="text-amber-300 text-sm mb-2">
-          1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
+          1: ${g.odds.home ? g.odds.home.toFixed(2) : "-"} | X: ${g.odds.draw ? g.odds.draw.toFixed(2) : "-"} | 2: ${g.odds.away ? g.odds.away.toFixed(2) : "-"}
         </div>
         <div class="text-sm mb-2 text-gray-300">
           Over 2.5: ${g.odds.over25 ? g.odds.over25.toFixed(2) : "-"} | Under 2.5: ${g.odds.under25 ? g.odds.under25.toFixed(2) : "-"}
