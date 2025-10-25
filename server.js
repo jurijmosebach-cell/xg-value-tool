@@ -1,4 +1,4 @@
-// server.js — STABIL + TESTDATUM
+// server.js — FERTIG: DATUM IN URL + STABIL + SPIELE FÜR 2025-10-18
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -27,35 +27,45 @@ const LEAGUES = [
   { key: "soccer_france_ligue_one", name: "Ligue 1", flag: "fr" },
 ];
 
+function getFlag(team) {
+  const flags = { "England": "gb", "Germany": "de", "Spain": "es", "Italy": "it", "France": "fr" };
+  for (const [country, flag] of Object.entries(flags)) {
+    if (team.includes(country)) return flag;
+  }
+  return "eu";
+}
+
 app.get("/api/games", async (req, res) => {
-  let date = req.query.date || "2025-10-18"; // TESTDATUM!
+  const date = req.query.date || "2025-10-18"; // TESTDATUM!
   const games = [];
 
   for (const league of LEAGUES) {
     try {
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
-      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&dateFormat=iso&oddsFormat=decimal`;
-      
+      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&date=${date}&dateFormat=iso&oddsFormat=decimal`;
+
       const response = await fetch(fullUrl);
-      if (!response.ok) continue;
+      if (!response.ok) {
+        console.warn(`HTTP ${response.status} für ${league.name}`);
+        continue;
+      }
 
       const data = await response.json();
-      if (!Array.isArray(data)) continue;
+      if (!Array.isArray(data)) {
+        console.log(`Keine Daten für ${league.name}`);
+        continue;
+      }
 
       for (const g of data) {
-        if (!g.commence_time?.startsWith(date)) continue;
-
         const home = g.home_team;
         const away = g.away_team;
         const bookmakers = g.bookmakers || [];
         if (bookmakers.length === 0) continue;
 
         const book = bookmakers[0];
-        const markets = book.markets || [];
-
-        const h2h = markets.find(m => m.key === "h2h")?.outcomes || [];
-        const totals = markets.find(m => m.key === "totals")?.outcomes || [];
-        const btts = markets.find(m => m.key === "btts")?.outcomes || [];
+        const h2h = book.markets?.find(m => m.key === "h2h")?.outcomes || [];
+        const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
+        const btts = book.markets?.find(m => m.key === "btts")?.outcomes || [];
 
         const odds = {
           home: h2h.find(o => o.name === home)?.price || 0,
@@ -64,6 +74,8 @@ app.get("/api/games", async (req, res) => {
           over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
           bttsYes: btts.find(o => o.name === "Yes")?.price || 0,
         };
+
+        if (odds.home === 0 && odds.away === 0) continue;
 
         const homeXG = 1.6 + Math.random() * 0.6;
         const awayXG = 1.3 + Math.random() * 0.5;
@@ -87,10 +99,12 @@ app.get("/api/games", async (req, res) => {
 
         games.push({
           home, away, league: league.name,
-          homeLogo: `https://crests.football-data.org/${home.split(" ").pop()}.svg`,
-          awayLogo: `https://crests.football-data.org/${away.split(" ").pop()}.svg`,
-          odds, value, totalXG: +totalXG.toFixed(2),
-          homeXG: +homeXG.toFixed(2), awayXG: +awayXG.toFixed(2)
+          homeLogo: `https://flagcdn.com/48x36/${getFlag(home)}.png`,
+          awayLogo: `https://flagcdn.com/48x36/${getFlag(away)}.png`,
+          odds, value,
+          totalXG: +totalXG.toFixed(2),
+          homeXG: +homeXG.toFixed(2),
+          awayXG: +awayXG.toFixed(2)
         });
       }
     } catch (err) {
@@ -107,4 +121,5 @@ app.get("*", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`LIVE: https://xg-value-tool.onrender.com`);
+  console.log(`Testdatum: 2025-10-18`);
 });
