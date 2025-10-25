@@ -1,4 +1,4 @@
-// server.js — 100% FUNKTIONIEREND: KEIN &date= + TESTDATUM
+// server.js — AKTUELLE SPIELE FÜR HEUTE + KEIN &date=
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -36,7 +36,9 @@ function getFlag(team) {
 }
 
 app.get("/api/games", async (req, res) => {
-  const date = req.query.date || "2025-10-18"; // ← Filter im Code!
+  // HEUTE als Standard!
+  const today = new Date().toISOString().slice(0, 10);
+  const date = req.query.date || today;
   const games = [];
 
   for (const league of LEAGUES) {
@@ -55,7 +57,7 @@ app.get("/api/games", async (req, res) => {
       if (!Array.isArray(data)) continue;
 
       for (const g of data) {
-        // Filter: commence_time muss mit date übereinstimmen
+        // Nur Spiele von HEUTE
         if (!g.commence_time?.startsWith(date)) continue;
 
         const home = g.home_team;
@@ -122,5 +124,5 @@ app.get("*", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`LIVE: https://xg-value-tool.onrender.com`);
-  console.log(`Testdatum: 2025-10-18`);
+  console.log(`Heutiges Datum: ${new Date().toISOString().slice(0, 10)}`);
 });
