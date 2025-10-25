@@ -1,4 +1,4 @@
-// server.js — 100% FUNKTIONIEREND: KEIN &date= + HEUTE
+// server.js — FUNKTIONIERT 100% → KEIN &date= + HEUTE
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -43,6 +43,7 @@ app.get("/api/games", async (req, res) => {
   for (const league of LEAGUES) {
     try {
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
+      
       // KEIN &date= → KEIN 422!
       const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&dateFormat=iso&oddsFormat=decimal`;
 
