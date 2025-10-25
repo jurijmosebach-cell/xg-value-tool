@@ -3,11 +3,12 @@ const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
 const dateInput = document.getElementById("match-date");
 
+// HEUTE als Standard
 const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
 
 refreshBtn.addEventListener("click", loadMatches);
-loadMatches();
+loadMatches(); // Sofort laden
 
 async function loadMatches() {
   const date = dateInput.value;
@@ -21,56 +22,49 @@ async function loadMatches() {
 
   try {
     const res = await fetch(`/api/games?date=${date}`);
-    const { response: gamesRaw } = await res.json();
-    if (!gamesRaw || gamesRaw.length === 0) {
-      statusDiv.textContent = "Keine Spiele für heute (Quoten noch nicht verfügbar)";
-      return;
-    }
+    const { response: games } = await res.json();
 
-    // Nur Spiele mit vollständigen Daten
-    const games = gamesRaw.filter(g => g && g.home && g.away && g.value && g.prob);
-
-    if (games.length === 0) {
-      statusDiv.textContent = "Keine vollständigen Spiele-Daten verfügbar";
+    if (!games || games.length === 0) {
+      statusDiv.textContent = "Keine Spiele für heute!";
       return;
     }
 
     // Top 7 Value Tipps
-    const topValue = [...games].sort((a,b)=>Math.max(b.value.home,b.value.draw,b.value.away)-Math.max(a.value.home,a.value.draw,a.value.away)).slice(0,7);
-    let topValueHtml = "<strong>Top 7 Value Tipps</strong><br>";
-    topValue.forEach(g=>{
-      const bestValue = Math.max(g.value.home,g.value.draw,g.value.away);
-      const market = bestValue===g.value.home?"1":bestValue===g.value.draw?"X":"2";
-      const perc = (bestValue*100).toFixed(1);
-      topValueHtml += `${g.home} vs ${g.away} → ${market} ${perc}% Value<br>`;
+    const sortedValue = [...games].sort((a,b)=>Math.max(b.value.home,b.value.draw,b.value.away)-Math.max(a.value.home,a.value.draw,a.value.away)).slice(0,7);
+
+    let valueHTML = `<h2 class="text-xl font-bold mb-2">Top 7 Value Tipps</h2><ul>`;
+    sortedValue.forEach(g=>{
+      const bestVal = Math.max(g.value.home,g.value.draw,g.value.away);
+      const market = bestVal===g.value.home?"1":bestVal===g.value.draw?"X":"2";
+      valueHTML += `<li>${g.home} vs ${g.away} → ${market} ${ (bestVal*100).toFixed(1) }% Value</li>`;
     });
+    valueHTML += `</ul>`;
+    document.getElementById("statbox").innerHTML = valueHTML;
 
     // Top 3 xG Favoriten
-    const topXG = [...games].sort((a,b)=>(b.homeXG+b.awayXG)-(a.homeXG+a.awayXG)).slice(0,3);
-    let topXGHtml = "<strong>Top 3 Favoriten (xG)</strong><br>";
+    const topXG = [...games].sort((a,b)=>b.totalXG - a.totalXG).slice(0,3);
+    let xgHTML = `<h2 class="text-xl font-bold mb-2">Top 3 Favoriten (xG)</h2><ul>`;
     topXG.forEach(g=>{
-      const totalXG = (g.homeXG+g.awayXG).toFixed(2);
-      topXGHtml += `${g.home} vs ${g.away} → ${totalXG} xG<br>`;
+      xgHTML += `<li>${g.home} vs ${g.away} → ${g.totalXG} xG</li>`;
     });
+    xgHTML += `</ul>`;
+    document.getElementById("statbox").innerHTML += xgHTML;
 
-    document.getElementById("statbox").innerHTML = topValueHtml + "<br>" + topXGHtml;
-
-    // Spiele rendern
+    // Alle Spiele anzeigen
     games.forEach(g=>{
       const bestValue = Math.max(g.value.home,g.value.draw,g.value.away);
-      const valueClass = bestValue>0.12?"green":bestValue>0.05?"yellow":"red";
-      const valuePercent = (bestValue*100).toFixed(1);
       const market = bestValue===g.value.home?"1":bestValue===g.value.draw?"X":"2";
+      const valuePercent = (bestValue*100).toFixed(1);
 
-      // Balken nur wenn Wahrscheinlichkeiten existieren
-      const homePerc = g.prob.home ? (g.prob.home*100).toFixed(1) : 0;
-      const drawPerc = g.prob.draw ? (g.prob.draw*100).toFixed(1) : 0;
-      const awayPerc = g.prob.away ? (g.prob.away*100).toFixed(1) : 0;
-      const overPerc = g.prob.over25 ? (g.prob.over25*100).toFixed(1) : 0;
-      const underPerc = g.prob.over25 ? ((1-g.prob.over25)*100).toFixed(1) : 0;
+      const homeProb = g.prob.home*100;
+      const drawProb = g.prob.draw*100;
+      const awayProb = g.prob.away*100;
+
+      const overProb = g.prob.over25*100;
+      const underProb = 100-overProb;
 
       const card = document.createElement("div");
-      card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-4";
+      card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-6";
       card.innerHTML = `
         <div class="flex justify-between items-center mb-3">
           <div class="flex items-center gap-3">
@@ -85,28 +79,30 @@ async function loadMatches() {
         </div>
 
         <div class="text-amber-300 text-sm mb-2">
-          1: ${g.odds.home?.toFixed(2)||"-"} | X: ${g.odds.draw?.toFixed(2)||"-"} | 2: ${g.odds.away?.toFixed(2)||"-"}
+          1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
         </div>
 
-        <!-- Value Balken -->
-        <div class="valuebar mb-2" title="${market} ${valuePercent}% Value">
-          <div class="valuefill ${valueClass}" style="width:${Math.min(bestValue*120+40,100)}%"></div>
-          <span class="valuetxt">${market} ${valuePercent}% Value</span>
+        <div class="mb-2">
+          <div class="text-sm text-gray-300">Sieg/Unentschieden Balken</div>
+          <div class="relative h-6 bg-gray-700 rounded-full overflow-hidden">
+            <div class="absolute h-full bg-green-500 transition-all" style="width:${homeProb}%"></div>
+            <div class="absolute h-full bg-yellow-500 left:${homeProb}%" style="width:${drawProb}%"></div>
+            <div class="absolute h-full bg-red-500 right:0;" style="width:${awayProb}%"></div>
+            <span class="absolute inset-0 flex items-center justify-center text-white font-bold text-sm">
+              1:${homeProb.toFixed(0)}% X:${drawProb.toFixed(0)} 2:${awayProb.toFixed(0)}%
+            </span>
+          </div>
         </div>
 
-        <!-- Sieg/Unentschieden Balken -->
-        <div class="valuebar mb-2" title="1:${homePerc}% X:${drawPerc}% 2:${awayPerc}%">
-          <div class="valuefill green" style="width:${homePerc}%"></div>
-          <div class="valuefill yellow" style="width:${drawPerc}%"></div>
-          <div class="valuefill red" style="width:${awayPerc}%"></div>
-          <span class="valuetxt">1:${homePerc}% X:${drawPerc}% 2:${awayPerc}%</span>
-        </div>
-
-        <!-- Over/Under Balken -->
-        <div class="valuebar" title="Over:${overPerc}% Under:${underPerc}%">
-          <div class="oufill green" style="width:${overPerc}%"></div>
-          <div class="oufill red" style="width:${underPerc}%"></div>
-          <span class="outxt">Over:${overPerc}% Under:${underPerc}%</span>
+        <div class="mb-2">
+          <div class="text-sm text-gray-300">Over/Under 2.5 Balken</div>
+          <div class="relative h-6 bg-gray-700 rounded-full overflow-hidden">
+            <div class="absolute h-full bg-green-500 transition-all" style="width:${overProb}%"></div>
+            <div class="absolute h-full bg-red-500 left:${overProb}%" style="width:${underProb}%"></div>
+            <span class="absolute inset-0 flex items-center justify-center text-white font-bold text-sm">
+              Over:${overProb.toFixed(0)}% Under:${underProb.toFixed(0)}%
+            </span>
+          </div>
         </div>
       `;
       matchList.appendChild(card);
