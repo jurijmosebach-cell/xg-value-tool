@@ -1,4 +1,4 @@
-// server.js — FIXED VERSION (HTTP 422 behoben)
+// server.js — FIXED (100% kompatibel mit aktueller The-Odds-API v4)
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -43,9 +43,9 @@ app.get("/api/games", async (req, res) => {
 
   for (const league of LEAGUES) {
     try {
-      // ✅ FIX: 'btts' → 'btts_yes_no'
+      // ✅ FIX: korrekter Market-Name laut aktueller API
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
-      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts_yes_no&dateFormat=iso&oddsFormat=decimal`;
+      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,both_teams_to_score&dateFormat=iso&oddsFormat=decimal`;
 
       console.log(`→ ${league.name}`);
       const response = await fetch(fullUrl);
@@ -70,7 +70,7 @@ app.get("/api/games", async (req, res) => {
         const book = bookmakers[0];
         const h2h = book.markets?.find(m => m.key === "h2h")?.outcomes || [];
         const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
-        const btts = book.markets?.find(m => m.key === "btts_yes_no")?.outcomes || [];
+        const btts = book.markets?.find(m => m.key === "both_teams_to_score")?.outcomes || [];
 
         const odds = {
           home: h2h.find(o => o.name === home)?.price || 0,
