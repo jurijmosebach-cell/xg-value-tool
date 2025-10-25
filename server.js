@@ -1,4 +1,4 @@
-// server.js — PRO VERSION
+// server.js — PRO VERSION (STABIL + SICHER)
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -14,6 +14,9 @@ app.use(cors());
 app.use(express.static(__dirname));
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
+if (!ODDS_API_KEY) {
+  console.error("FEHLER: ODDS_API_KEY fehlt in Environment Variables!");
+}
 const PORT = process.env.PORT || 10000;
 
 const LEAGUES = [
@@ -33,14 +36,15 @@ const TEAM_LOGOS = {
   "Brighton and Hove Albion": "https://crests.football-data.org/397.svg",
   "Brentford": "https://crests.football-data.org/402.svg",
   "Liverpool": "https://crests.football-data.org/64.svg",
-  // Füge nach Bedarf hinzu oder nutze API
 };
 
 function getLogo(team) {
   return TEAM_LOGOS[team] || `https://flagcdn.com/48x36/${getFlag(team)}.png`;
 }
 function getFlag(team) {
-  for (const l of LEAGUES) if (team.includes(l.name.split(" ")[0])) return l.flag;
+  for (const l of LEAGUES) {
+    if (team.toLowerCase().includes(l.name.toLowerCase().split(" ")[0])) return l.flag;
+  }
   return "eu";
 }
 
@@ -48,44 +52,67 @@ function getFlag(team) {
 function poisson(lambda, k) {
   return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
 }
-function factorial(n) { let f = 1; for (let i = 2; i <= n; i++) f *= i; return f; }
+function factorial(n) {
+  let f = 1;
+  for (let i = 2; i <= n; i++) f *= i;
+  return f;
+}
 function overUnderProb(homeXG, awayXG, line) {
   let over = 0;
   for (let i = Math.ceil(line) + 1; i <= 12; i++) {
     for (let h = 0; h <= i; h++) {
       const a = i - h;
-      over += poisson(homeXG, h) * poisson(awayXG, a);
+      over += poisson(homeXG, h) * poisson(awayXG a);
     }
   }
   return Math.min(over, 1);
 }
 
 app.get("/api/games", async (req, res) => {
-  const date = req.query.date;
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
   const games = [];
 
   for (const league of LEAGUES) {
     try {
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
-      const data = await fetch(`${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&dateFormat=iso&oddsFormat=decimal`).then(r => r.json());
+      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&dateFormat=iso&oddsFormat=decimal`;
+      
+      const response = await fetch(fullUrl);
+      if (!response.ok) {
+        console.warn(`HTTP ${response.status} für ${league.name}`);
+        continue;
+      }
+
+      const data = await response.json();
+
+      // SICHERHEITSCHECK: data muss Array sein
+      if (!Array.isArray(data)) {
+        console.log(`Keine Spiele für ${league.name} (data ist kein Array)`);
+        continue;
+      }
 
       for (const g of data) {
-        if (!g.commence_time.startsWith(date)) continue;
+        if (!g.commence_time?.startsWith(date)) continue;
 
         const home = g.home_team;
         const away = g.away_team;
-        const book = g.bookmakers[0];
-        if (!book) continue;
 
-        const h2h = book.markets.find(m => m.key === "h2h")?.outcomes || [];
-        const totals = book.markets.find(m => m.key === "totals")?.outcomes || [];
-        const btts = book.markets.find(m => m.key === "btts")?.outcomes || [];
+        // SICHERHEITSCHECK: Bookmaker existiert
+        const bookmakers = g.bookmakers || [];
+        if (bookmakers.length === 0) continue;
+
+        const book = bookmakers[0];
+        const markets = book.markets || [];
+
+        const h2h = markets.find(m => m.key === "h2h")?.outcomes || [];
+        const totals = markets.find(m => m.key === "totals")?.outcomes || [];
+        const btts = markets.find(m => m.key === "btts")?.outcomes || [];
 
         const odds = {
           home: h2h.find(o => o.name === home)?.price || 0,
           draw: h2h.find(o => o.name === "Draw")?.price || 0,
           away: h2h.find(o => o.name === away)?.price || 0,
-          over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
+          over25: totals.find(o => o.name === "Over" && o.point === 2.5) ?.price || 0,
           bttsYes: btts.find(o => o.name === "Yes")?.price || 0,
         };
 
@@ -117,7 +144,7 @@ app.get("/api/games", async (req, res) => {
         });
       }
     } catch (err) {
-      console.error("Liga-Fehler:", league.name, err.message);
+      console.error(`Liga-Fehler ${league.name}:`, err.message);
     }
   }
 
@@ -130,4 +157,5 @@ app.get("*", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`LIVE: https://xg-value-tool.onrender.com`);
+  console.log(`Heute: ${new Date().toISOString().slice(0, 10)}`);
 });
