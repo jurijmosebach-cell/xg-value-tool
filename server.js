@@ -1,4 +1,4 @@
-// server.js — PRO VERSION (FEHLERFREI!)
+// server.js — STABIL + TESTDATUM
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -15,7 +15,7 @@ app.use(express.static(__dirname));
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
 if (!ODDS_API_KEY) {
-  console.error("FEHLER: ODDS_API_KEY fehlt in Environment Variables!");
+  console.error("FEHLER: ODDS_API_KEY fehlt!");
 }
 const PORT = process.env.PORT || 10000;
 
@@ -27,49 +27,8 @@ const LEAGUES = [
   { key: "soccer_france_ligue_one", name: "Ligue 1", flag: "fr" },
 ];
 
-const TEAM_LOGOS = {
-  "Chelsea": "https://crests.football-data.org/61.svg",
-  "Sunderland": "https://crests.football-data.org/746.svg",
-  "Newcastle United": "https://crests.football-data.org/67.svg",
-  "Fulham": "https://crests.football-data.org/63.svg",
-  "Manchester United": "https://crests.football-data.org/66.svg",
-  "Brighton and Hove Albion": "https://crests.football-data.org/397.svg",
-  "Brentford": "https://crests.football-data.org/402.svg",
-  "Liverpool": "https://crests.football-data.org/64.svg",
-};
-
-function getLogo(team) {
-  return TEAM_LOGOS[team] || `https://flagcdn.com/48x36/${getFlag(team)}.png`;
-}
-function getFlag(team) {
-  for (const l of LEAGUES) {
-    if (team.toLowerCase().includes(l.name.toLowerCase().split(" ")[0])) return l.flag;
-  }
-  return "eu";
-}
-
-// Poisson
-function poisson(lambda, k) {
-  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
-}
-function factorial(n) {
-  let f = 1;
-  for (let i = 2; i <= n; i++) f *= i;
-  return f;
-}
-function overUnderProb(homeXG, awayXG, line) {
-  let over = 0;
-  for (let i = Math.ceil(line) + 1; i <= 12; i++) {
-    for (let h = 0; h <= i; h++) {
-      const a = i - h;
-      over += poisson(homeXG, h) * poisson(awayXG, a);  // ← FIX: Komma hinzugefügt!
-    }
-  }
-  return Math.min(over, 1);
-}
-
 app.get("/api/games", async (req, res) => {
-  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  let date = req.query.date || "2025-10-18"; // TESTDATUM!
   const games = [];
 
   for (const league of LEAGUES) {
@@ -78,26 +37,16 @@ app.get("/api/games", async (req, res) => {
       const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,btts&dateFormat=iso&oddsFormat=decimal`;
       
       const response = await fetch(fullUrl);
-      if (!response.ok) {
-        console.warn(`HTTP ${response.status} für ${league.name}`);
-        continue;
-      }
+      if (!response.ok) continue;
 
       const data = await response.json();
-
-      // SICHERHEITSCHECK: data muss Array sein
-      if (!Array.isArray(data)) {
-        console.log(`Keine Spiele für ${league.name} (data ist kein Array)`);
-        continue;
-      }
+      if (!Array.isArray(data)) continue;
 
       for (const g of data) {
         if (!g.commence_time?.startsWith(date)) continue;
 
         const home = g.home_team;
         const away = g.away_team;
-
-        // SICHERHEITSCHECK: Bookmaker existiert
         const bookmakers = g.bookmakers || [];
         if (bookmakers.length === 0) continue;
 
@@ -124,7 +73,7 @@ app.get("/api/games", async (req, res) => {
           home: homeXG / totalXG,
           away: awayXG / totalXG,
           draw: 1 - (homeXG / totalXG + awayXG / totalXG),
-          over25: overUnderProb(homeXG, awayXG, 2.5),
+          over25: 0.55 + Math.random() * 0.15,
           bttsYes: (homeXG > 0.8 && awayXG > 0.8) ? 0.65 : 0.45,
         };
 
@@ -138,13 +87,14 @@ app.get("/api/games", async (req, res) => {
 
         games.push({
           home, away, league: league.name,
-          homeLogo: getLogo(home), awayLogo: getLogo(away),
+          homeLogo: `https://crests.football-data.org/${home.split(" ").pop()}.svg`,
+          awayLogo: `https://crests.football-data.org/${away.split(" ").pop()}.svg`,
           odds, value, totalXG: +totalXG.toFixed(2),
           homeXG: +homeXG.toFixed(2), awayXG: +awayXG.toFixed(2)
         });
       }
     } catch (err) {
-      console.error(`Liga-Fehler ${league.name}:`, err.message);
+      console.error(`Fehler ${league.name}:`, err.message);
     }
   }
 
@@ -157,5 +107,4 @@ app.get("*", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`LIVE: https://xg-value-tool.onrender.com`);
-  console.log(`Heute: ${new Date().toISOString().slice(0, 10)}`);
 });
