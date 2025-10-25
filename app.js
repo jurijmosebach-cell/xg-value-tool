@@ -1,4 +1,5 @@
 const matchList = document.getElementById("match-list");
+const topValueList = document.getElementById("top-value-list");
 const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
 const dateInput = document.getElementById("match-date");
@@ -18,6 +19,7 @@ async function loadMatches() {
 
   statusDiv.textContent = "Lade aktuelle Spiele...";
   matchList.innerHTML = "";
+  topValueList.innerHTML = "";
 
   try {
     const res = await fetch(`/api/games?date=${date}`);
@@ -28,16 +30,42 @@ async function loadMatches() {
       return;
     }
 
+    // Top 7 Value Tipps
+    const top7 = [...games].sort((a, b) => {
+      const aVal = Math.max(a.value.home, a.value.draw, a.value.away);
+      const bVal = Math.max(b.value.home, b.value.draw, b.value.away);
+      return bVal - aVal;
+    }).slice(0, 7);
+
+    top7.forEach(g => {
+      const bestValue = Math.max(g.value.home, g.value.draw, g.value.away);
+      const valuePercent = (bestValue * 100).toFixed(1);
+      const valueClass = bestValue > 0.12 ? "bg-green-500" : bestValue > 0.05 ? "bg-yellow-500" : "bg-red-500";
+      const market = bestValue === g.value.home ? "1" : bestValue === g.value.draw ? "X" : "2";
+
+      const topCard = document.createElement("div");
+      topCard.className = "mb-2 p-2 bg-gray-800 rounded-md shadow";
+      topCard.innerHTML = `
+        <div class="flex justify-between items-center text-white font-bold">
+          <span>${g.home} vs ${g.away} → ${market} ${valuePercent}% Value</span>
+        </div>
+        <div class="relative h-4 bg-gray-700 rounded-full overflow-hidden mt-1">
+          <div class="${valueClass} h-full transition-all duration-1000" style="width: ${Math.min(bestValue*120, 100)}%"></div>
+        </div>
+      `;
+      topValueList.appendChild(topCard);
+    });
+
+    // Spiele anzeigen
     games.forEach(g => {
       const card = document.createElement("div");
       card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-6";
 
-      // Wahrscheinlichkeiten
       const homeVal = g.value.home * 100;
       const drawVal = g.value.draw * 100;
       const awayVal = g.value.away * 100;
       const overVal = g.value.over25 * 100;
-      const underVal = g.value.under25 * 100;
+      const underVal = 100 - overVal; // Automatisch ergänzen
 
       card.innerHTML = `
         <div class="flex justify-between items-center mb-3">
@@ -65,23 +93,27 @@ async function loadMatches() {
           Over 2.5: ${g.odds.over25 ? g.odds.over25.toFixed(2) : "-"} | Under 2.5: ${g.odds.under25 ? g.odds.under25.toFixed(2) : "-"}
         </div>
 
-        <!-- Balken Sieg/Unentschieden -->
+        <!-- Balken Sieg/Unentschieden/Niederlage -->
         <div class="relative h-6 bg-gray-700 rounded-full overflow-hidden mb-2">
-          <div class="absolute h-full left-0 top-0 bg-green-500 transition-all duration-1000" style="width: ${homeVal}%"></div>
-          <div class="absolute h-full left-${homeVal}% top-0 bg-yellow-500 transition-all duration-1000" style="width: ${drawVal}%"></div>
-          <div class="absolute h-full left-${homeVal + drawVal}% top-0 bg-red-500 transition-all duration-1000" style="width: ${awayVal}%"></div>
-          <span class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm">
-            1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%
-          </span>
+          <div class="absolute left-0 top-0 h-full bg-green-500 transition-all duration-1000" style="width: ${homeVal}%">
+            <span class="absolute left-2 text-white font-bold text-sm">${g.home} ${homeVal.toFixed(1)}%</span>
+          </div>
+          <div class="absolute left-${homeVal}% top-0 h-full bg-yellow-500 transition-all duration-1000" style="width: ${drawVal}%">
+            <span class="absolute left-2 text-white font-bold text-sm">Draw ${drawVal.toFixed(1)}%</span>
+          </div>
+          <div class="absolute left-${homeVal + drawVal}% top-0 h-full bg-red-500 transition-all duration-1000" style="width: ${awayVal}%">
+            <span class="absolute left-2 text-white font-bold text-sm">${g.away} ${awayVal.toFixed(1)}%</span>
+          </div>
         </div>
 
         <!-- Balken Over/Under -->
         <div class="relative h-6 bg-gray-700 rounded-full overflow-hidden">
-          <div class="absolute h-full left-0 top-0 bg-green-500 transition-all duration-1000" style="width: ${overVal}%"></div>
-          <div class="absolute h-full left-${overVal}% top-0 bg-red-500 transition-all duration-1000" style="width: ${underVal}%"></div>
-          <span class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm">
-            Over:${overVal.toFixed(1)}% | Under:${underVal.toFixed(1)}%
-          </span>
+          <div class="absolute left-0 top-0 h-full bg-green-500 transition-all duration-1000" style="width: ${overVal}%">
+            <span class="absolute left-2 text-white font-bold text-sm">Over ${overVal.toFixed(1)}%</span>
+          </div>
+          <div class="absolute left-${overVal}% top-0 h-full bg-red-500 transition-all duration-1000" style="width: ${underVal}%">
+            <span class="absolute left-2 text-white font-bold text-sm">Under ${underVal.toFixed(1)}%</span>
+          </div>
         </div>
       `;
 
@@ -89,6 +121,7 @@ async function loadMatches() {
     });
 
     statusDiv.textContent = `${games.length} aktuelle Spiele geladen!`;
+
   } catch (err) {
     statusDiv.textContent = "Fehler: " + err.message;
     console.error(err);
