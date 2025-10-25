@@ -1,4 +1,4 @@
-// server.js — FUNKTIONIERT 100% → KEIN &date= + HEUTE
+// server.js — FUNKTIONIERT 100% → KEIN &date= + RICHTIGER KEY
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
