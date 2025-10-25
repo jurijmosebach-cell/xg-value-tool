@@ -1,4 +1,3 @@
-// server.js — sauber für Node.js
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -53,7 +52,8 @@ app.get("/api/games", async (req, res) => {
       if (!Array.isArray(data)) continue;
 
       for (const g of data) {
-        if (!g.commence_time?.startsWith(date)) continue;
+        const gameDate = new Date(g.commence_time).toISOString().slice(0,10);
+        if (gameDate !== date) continue;
 
         const home = g.home_team;
         const away = g.away_team;
@@ -78,15 +78,10 @@ app.get("/api/games", async (req, res) => {
             market.outcomes.forEach(o => {
               if (o.name === "Yes") odds.bttsYes = o.price;
             });
-          } else if (market.key === "dnb") {
-            market.outcomes.forEach(o => {
-              if (o.name === home) odds.dnbHome = o.price;
-              if (o.name === away) odds.dnbAway = o.price;
-            });
           }
         });
 
-        if (!odds.home && !odds.away) continue;
+        if (!odds.home && !odds.away && !odds.draw) continue;
 
         const homeXG = 1.3 + Math.random() * 0.8;
         const awayXG = 1.2 + Math.random() * 0.7;
