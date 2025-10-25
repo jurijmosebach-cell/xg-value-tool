@@ -11,6 +11,17 @@ dateInput.value = today;
 refreshBtn.addEventListener("click", loadMatches);
 loadMatches();
 
+function getFlag(team) {
+  const flags = { "Chelsea": "gb", "Manchester United": "gb", "Liverpool": "gb", "Arsenal": "gb",
+                  "Borussia Dortmund": "de", "Bayern": "de", "1. FC Köln": "de", "Valencia": "es",
+                  "Villarreal": "es", "Barcelona": "es", "Juventus": "it", "Napoli": "it", "Inter": "it",
+                  "AS Monaco": "fr", "Paris Saint-Germain": "fr", "MLS": "us" };
+  for (const [name, flag] of Object.entries(flags)) {
+    if (team.includes(name)) return flag;
+  }
+  return "eu";
+}
+
 async function loadMatches() {
   const date = dateInput.value;
   if (!date) {
@@ -42,8 +53,20 @@ async function loadMatches() {
     topValue.forEach(g => {
       const bestValue = Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25);
       const market = bestValue === g.value.home ? "1" : bestValue === g.value.draw ? "X" : bestValue === g.value.away ? "2" : "O2.5";
+      const valuePercent = (bestValue*100).toFixed(1);
+
+      const barColor = bestValue>0.12 ? "bg-green-500" : bestValue>0.05 ? "bg-yellow-500" : "bg-red-500";
+
       const li = document.createElement("li");
-      li.textContent = `${g.home} vs ${g.away} → ${market} ${(bestValue*100).toFixed(1)}% Value`;
+      li.className = "mb-2";
+      li.innerHTML = `
+        <div class="flex justify-between items-center">
+          <span>${g.home} vs ${g.away} → ${market} ${valuePercent}% Value</span>
+          <div class="relative w-32 h-4 bg-gray-700 rounded-full overflow-hidden ml-2">
+            <div class="${barColor} h-full transition-all duration-1000" style="width:${Math.min(bestValue*120+40,100)}%"></div>
+          </div>
+        </div>
+      `;
       topList.appendChild(li);
     });
 
@@ -66,9 +89,15 @@ async function loadMatches() {
       card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-4";
       card.innerHTML = `
         <div class="flex justify-between items-center mb-3">
-          <div><div class="font-bold text-lg">${g.home}</div><div class="text-xs text-gray-400">${g.homeXG} xG</div></div>
+          <div class="flex items-center gap-3">
+            <img src="https://flagcdn.com/48x36/${getFlag(g.home)}.png" class="w-10 h-10 rounded-full" alt="${g.home}"/>
+            <div><div class="font-bold text-lg">${g.home}</div><div class="text-xs text-gray-400">${g.homeXG} xG</div></div>
+          </div>
           <span class="text-xs bg-cyan-900 text-cyan-300 px-3 py-1 rounded-full">${g.league}</span>
-          <div><div class="font-bold text-lg">${g.away}</div><div class="text-xs text-gray-400">${g.awayXG} xG</div></div>
+          <div class="flex items-center gap-3 text-right">
+            <div><div class="font-bold text-lg">${g.away}</div><div class="text-xs text-gray-400">${g.awayXG} xG</div></div>
+            <img src="https://flagcdn.com/48x36/${getFlag(g.away)}.png" class="w-10 h-10 rounded-full" alt="${g.away}"/>
+          </div>
         </div>
         <div class="text-amber-300 text-sm mb-2">
           1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
@@ -77,7 +106,7 @@ async function loadMatches() {
           Over 2.5: ${g.odds.over25 ? g.odds.over25.toFixed(2) : "-"}
         </div>
         <div class="relative h-10 bg-gray-700 rounded-full overflow-hidden">
-          <div class="${valueClass} h-full transition-all duration-500" style="width: ${Math.min(bestValue*120+40,100)}%"></div>
+          <div class="${valueClass} h-full transition-all duration-1000" style="width: ${Math.min(bestValue*120+40,100)}%"></div>
           <span class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm">
             ${market} ${valuePercent}% Value
           </span>
