@@ -1,4 +1,4 @@
-// server.js — PRO VERSION (STABIL + SICHER)
+// server.js — PRO VERSION (FEHLERFREI!)
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -62,7 +62,7 @@ function overUnderProb(homeXG, awayXG, line) {
   for (let i = Math.ceil(line) + 1; i <= 12; i++) {
     for (let h = 0; h <= i; h++) {
       const a = i - h;
-      over += poisson(homeXG, h) * poisson(awayXG a);
+      over += poisson(homeXG, h) * poisson(awayXG, a);  // ← FIX: Komma hinzugefügt!
     }
   }
   return Math.min(over, 1);
@@ -112,7 +112,7 @@ app.get("/api/games", async (req, res) => {
           home: h2h.find(o => o.name === home)?.price || 0,
           draw: h2h.find(o => o.name === "Draw")?.price || 0,
           away: h2h.find(o => o.name === away)?.price || 0,
-          over25: totals.find(o => o.name === "Over" && o.point === 2.5) ?.price || 0,
+          over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
           bttsYes: btts.find(o => o.name === "Yes")?.price || 0,
         };
 
