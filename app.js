@@ -1,4 +1,4 @@
-// app.js — ALLE SPIELE ANZEIGEN + TESTDATUM
+// app.js — FERTIG: ALLE SPIELE ANZEIGEN + TESTDATUM
 const matchList = document.getElementById("match-list");
 const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
@@ -33,7 +33,6 @@ async function loadMatches() {
 
     let count = 0;
     for (const g of games) {
-      // ALLE SPIELE ANZEIGEN – KEIN FILTER!
       const bestValue = Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25, g.value.bttsYes);
       const valuePercent = (bestValue * 100).toFixed(1);
       const valueClass = bestValue > 0.12 ? "bg-green-500" : bestValue > 0.05 ? "bg-yellow-500" : "bg-red-500";
