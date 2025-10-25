@@ -54,17 +54,23 @@ async function loadMatches() {
       const bestValue = Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25);
       const market = bestValue === g.value.home ? "1" : bestValue === g.value.draw ? "X" : bestValue === g.value.away ? "2" : "O2.5";
       const valuePercent = (bestValue*100).toFixed(1);
-
+      const odds = market === "1" ? g.odds.home : market==="X" ? g.odds.draw : market==="2" ? g.odds.away : g.odds.over25;
       const barColor = bestValue>0.12 ? "bg-green-500" : bestValue>0.05 ? "bg-yellow-500" : "bg-red-500";
 
       const li = document.createElement("li");
-      li.className = "mb-2";
+      li.className = "mb-2 relative group cursor-pointer";
       li.innerHTML = `
         <div class="flex justify-between items-center">
           <span>${g.home} vs ${g.away} → ${market} ${valuePercent}% Value</span>
           <div class="relative w-32 h-4 bg-gray-700 rounded-full overflow-hidden ml-2">
             <div class="${barColor} h-full transition-all duration-1000" style="width:${Math.min(bestValue*120+40,100)}%"></div>
           </div>
+        </div>
+        <div class="absolute left-0 top-6 w-80 p-3 bg-gray-800 border border-gray-600 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity text-sm z-50">
+          <strong>Markt:</strong> ${market} <br/>
+          <strong>Quote:</strong> ${odds} <br/>
+          <strong>Berechneter Value:</strong> ${valuePercent}% <br/>
+          <strong>xG Heim:</strong> ${g.homeXG} | <strong>xG Auswärts:</strong> ${g.awayXG}
         </div>
       `;
       topList.appendChild(li);
