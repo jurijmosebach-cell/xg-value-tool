@@ -3,7 +3,6 @@ const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
 const dateInput = document.getElementById("match-date");
 
-// HEUTE als Standard
 const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
 
@@ -22,10 +21,17 @@ async function loadMatches() {
 
   try {
     const res = await fetch(`/api/games?date=${date}`);
-    const { response: games } = await res.json();
-
-    if (!games || games.length === 0) {
+    const { response: gamesRaw } = await res.json();
+    if (!gamesRaw || gamesRaw.length === 0) {
       statusDiv.textContent = "Keine Spiele für heute (Quoten noch nicht verfügbar)";
+      return;
+    }
+
+    // Nur Spiele mit vollständigen Daten
+    const games = gamesRaw.filter(g => g && g.home && g.away && g.value && g.prob);
+
+    if (games.length === 0) {
+      statusDiv.textContent = "Keine vollständigen Spiele-Daten verfügbar";
       return;
     }
 
@@ -56,15 +62,12 @@ async function loadMatches() {
       const valuePercent = (bestValue*100).toFixed(1);
       const market = bestValue===g.value.home?"1":bestValue===g.value.draw?"X":"2";
 
-      // Sieg/Unentschieden Balken
-      const totalProb = g.prob.home+g.prob.draw+g.prob.away;
-      const homePerc = (g.prob.home/totalProb*100).toFixed(1);
-      const drawPerc = (g.prob.draw/totalProb*100).toFixed(1);
-      const awayPerc = (g.prob.away/totalProb*100).toFixed(1);
-
-      // Over/Under Balken
-      const overPerc = (g.prob.over25*100).toFixed(1);
-      const underPerc = ((1-g.prob.over25)*100).toFixed(1);
+      // Balken nur wenn Wahrscheinlichkeiten existieren
+      const homePerc = g.prob.home ? (g.prob.home*100).toFixed(1) : 0;
+      const drawPerc = g.prob.draw ? (g.prob.draw*100).toFixed(1) : 0;
+      const awayPerc = g.prob.away ? (g.prob.away*100).toFixed(1) : 0;
+      const overPerc = g.prob.over25 ? (g.prob.over25*100).toFixed(1) : 0;
+      const underPerc = g.prob.over25 ? ((1-g.prob.over25)*100).toFixed(1) : 0;
 
       const card = document.createElement("div");
       card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-4";
@@ -82,7 +85,7 @@ async function loadMatches() {
         </div>
 
         <div class="text-amber-300 text-sm mb-2">
-          1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
+          1: ${g.odds.home?.toFixed(2)||"-"} | X: ${g.odds.draw?.toFixed(2)||"-"} | 2: ${g.odds.away?.toFixed(2)||"-"}
         </div>
 
         <!-- Value Balken -->
