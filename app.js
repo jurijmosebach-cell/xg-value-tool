@@ -1,4 +1,3 @@
-// app.js — Frontend mit Value-Balken + Speichern
 const matchList = document.getElementById("match-list");
 const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
@@ -9,72 +8,73 @@ refreshBtn.addEventListener("click", loadMatches);
 
 function showStatBox() {
   const stored = JSON.parse(localStorage.getItem('myValues') || "[]");
-  const statbox = document.getElementById("statbox");
-  if (stored.length === 0) {
-    statbox.textContent = "";
-    return;
-  }
-  statbox.textContent = `Du hast ${stored.length} Value-Tipps gespeichert!`;
-  statbox.className = "bg-gray-800 text-purple-400 text-sm px-3 py-1 rounded";
+  const box = document.getElementById("statbox");
+  box.textContent = stored.length ? ` ${stored.length} Value-Tipps gespeichert!` : "";
+  box.className = stored.length ? "bg-purple-900 text-purple-300 px-3 py-1 rounded text-sm inline-block" : "";
 }
 
 async function loadMatches() {
   const date = dateInput.value;
-  statusDiv.textContent = "Lade Spiele & Quoten...";
+  statusDiv.textContent = "Lade Top-Ligen...";
 
   try {
-    const [fixturesRes, oddsRes] = await Promise.all([
-      fetch(`/api/fixtures?date=${date}`),
-      fetch(`https://api.the-odds-api.com/v4/sports/soccer_epl/odds?apiKey=${"YOUR_KEY"}&regions=eu&markets=h2h&date=${date}`)
-    ]);
+    const res = await fetch(`/api/games?date=${date}`);
+    const { response: games } = await res.json();
 
-    const fixtures = await fixturesRes.json();
     matchList.innerHTML = "";
     let count = 0;
 
-    for (const g of fixtures.response) {
-      const key = `${g.home} vs ${g.away}`;
-      const value = g.value.over25 || 0;
-      const valuePercent = (value * 100).toFixed(1);
-      const valueClass = value > 0.12 ? "bg-green-500" : value > 0.04 ? "bg-yellow-500" : "bg-red-500";
-      const valueIcon = value > 0 ? "Check" : "Cross";
+    for (const g of games) {
+      const bestValue = Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25, g.value.bttsYes);
+      if (bestValue < 0.03) continue; // Nur echte Value
+
+      const valuePercent = (bestValue * 100).toFixed(1);
+      const valueClass = bestValue > 0.12 ? "bg-green-500" : bestValue > 0.05 ? "bg-yellow-500" : "bg-red-500";
+      const market = bestValue === g.value.home ? "1" : bestValue === g.value.draw ? "X" : bestValue === g.value.away ? "2" : bestValue === g.value.over25 ? "O2.5" : "BTTS";
 
       const card = document.createElement("div");
-      card.className = "bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700";
+      card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 hover:border-cyan-500 transition";
       card.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-2">
-            <img src="${g.homeLogo}" class="w-8 h-8 rounded-full" alt="${g.home}"/>
-            <strong>${g.home}</strong>
+        <div class="flex justify-between items-center mb-3">
+          <div class="flex items-center gap-3">
+            <img src="${g.homeLogo}" class="w-10 h-10 rounded-full border-2 border-gray-600" alt="${g.home}"/>
+            <div>
+              <div class="font-bold text-lg">${g.home}</div>
+              <div class="text-xs text-gray-400">${g.homeXG} xG</div>
+            </div>
           </div>
-          <span class="text-cyan-400 text-sm bg-gray-700 px-2 py-1 rounded">${g.league}</span>
-          <div class="flex items-center gap-2">
-            <strong>${g.away}</strong>
-            <img src="${g.awayLogo}" class="w-8 h-8 rounded-full" alt="${g.away}"/>
+          <span class="text-xs bg-cyan-900 text-cyan-300 px-3 py-1 rounded-full">${g.league}</span>
+          <div class="flex items-center gap-3 text-right">
+            <div>
+              <div class="font-bold text-lg">${g.away}</div>
+              <div class="text-xs text-gray-400">${g.awayXG} xG</div>
+            </div>
+            <img src="${g.awayLogo}" class="w-10 h-10 rounded-full border-2 border-gray-600" alt="${g.away}"/>
           </div>
         </div>
 
-        <div class="text-amber-400 text-sm space-y-1">
+        <div class="text-amber-300 text-sm space-y-1 mb-3">
           <div>1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}</div>
-          <div>Over 2.5: ${g.odds.over25.toFixed(2)} | xG: ${g.totalXG}</div>
+          <div>Over 2.5: ${g.odds.over25.toFixed(2)} | BTTS: ${g.odds.bttsYes.toFixed(2)} | Gesamt xG: ${g.totalXG}</div>
         </div>
 
-        <div class="relative h-6 bg-gray-700 rounded-full mt-3 overflow-hidden">
-          <div class="${valueClass}" style="width: ${Math.min(value * 100 + 50, 100)}%"></div>
-          <span class="absolute left-2 top-1 text-lg">${valueIcon}</span>
-          <span class="absolute right-2 top-1 font-bold text-white text-sm">${valuePercent}% Value</span>
+        <div class="relative h-8 bg-gray-700 rounded-full overflow-hidden mb-3">
+          <div class="${valueClass}" style="width: ${Math.min(bestValue * 120 + 40, 100)}%"></div>
+          <span class="absolute inset-0 flex items-center justify-center font-bold text-white">
+            ${market} ${valuePercent}% Value
+          </span>
         </div>
 
-        <button class="save-value-btn mt-3 w-full bg-gradient-to-r from-cyan-500 to-yellow-500 text-black font-bold py-2 rounded hover:from-yellow-500 hover:to-red-500 hover:text-white transition">
-          Value merken
+        <button class="w-full bg-gradient-to-r from-cyan-500 to-purple-600 text-black font-bold py-2 rounded-lg hover:from-purple-600 hover:to-pink-600 hover:text-white transition">
+          Tipp speichern
         </button>
       `;
 
-      card.querySelector('.save-value-btn').onclick = () => {
+      card.querySelector("button").onclick = () => {
         const stored = JSON.parse(localStorage.getItem('myValues') || "[]");
-        stored.push({ date, home: g.home, away: g.away, value, league: g.league });
+        stored.push({ date, ...g, bestValue, market });
         localStorage.setItem('myValues', JSON.stringify(stored));
-        alert("Value-Tipp gespeichert!");
+        alert(`${g.home} vs ${g.away} – ${market} ${valuePercent}% gespeichert!`);
         showStatBox();
       };
 
@@ -82,11 +82,11 @@ async function loadMatches() {
       count++;
     }
 
-    statusDiv.textContent = count > 0 ? `${count} Spiele geladen` : "Keine Spiele gefunden";
+    statusDiv.textContent = count ? `${count} Value-Spiele gefunden` : "Keine Value heute";
     showStatBox();
   } catch (err) {
+    statusDiv.textContent = "Fehler beim Laden";
     console.error(err);
-    statusDiv.textContent = "Fehler beim Laden!";
   }
 }
 
