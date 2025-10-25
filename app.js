@@ -1,13 +1,16 @@
 const matchList = document.getElementById("match-list");
 const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
-const statBox = document.getElementById("statbox");
 const dateInput = document.getElementById("match-date");
 
+// Heute als Standard
 const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
 
+// Klick auf "Laden"
 refreshBtn.addEventListener("click", loadMatches);
+
+// Sofort laden
 loadMatches();
 
 async function loadMatches() {
@@ -19,7 +22,6 @@ async function loadMatches() {
 
   statusDiv.textContent = "Lade aktuelle Spiele...";
   matchList.innerHTML = "";
-  statBox.innerHTML = "";
 
   try {
     const res = await fetch(`/api/games?date=${date}`);
@@ -30,54 +32,52 @@ async function loadMatches() {
       return;
     }
 
-    // --- Top 7 Value Tipps ---
-    const topValue = [...games]
-      .sort((a,b) => Math.max(...Object.values(b.value)) - Math.max(...Object.values(a.value)))
-      .slice(0,7);
+    // Top 7 Value Tipps
+    const topValue = [...games].sort((a,b)=>{
+      const maxA = Math.max(a.value.home, a.value.draw, a.value.away);
+      const maxB = Math.max(b.value.home, b.value.draw, b.value.away);
+      return maxB - maxA;
+    }).slice(0,7);
 
-    const topValueHtml = `<div class="mb-4">
-      <h2 class="font-bold text-lg mb-2">Top 7 Value Tipps</h2>
-      <ul class="list-disc ml-5">
-        ${topValue.map(g => {
-          const bestMarket = Object.entries(g.value).reduce((a,b) => a[1] > b[1]? a:b);
-          return `<li>${g.home} vs ${g.away} → ${bestMarket[0]} ${(bestMarket[1]*100).toFixed(1)}% Value</li>`;
-        }).join("")}
-      </ul>
-    </div>`;
-    statBox.innerHTML += topValueHtml;
+    let valueHTML = "<h2 class='text-lg font-bold mb-2'>Top 7 Value Tipps</h2><ul class='list-disc pl-5 mb-6'>";
+    topValue.forEach(g=>{
+      const bestVal = Math.max(g.value.home, g.value.draw, g.value.away);
+      const market = bestVal === g.value.home ? "1" : bestVal === g.value.draw ? "X" : "2";
+      valueHTML += `<li>${g.home} vs ${g.away} → ${market} ${ (bestVal*100).toFixed(1) }% Value</li>`;
+    });
+    valueHTML += "</ul>";
 
-    // --- Top 5 xG Favoriten ---
-    const topXG = [...games]
-      .sort((a,b) => (b.homeXG + b.awayXG) - (a.homeXG + a.awayXG))
-      .slice(0,5);
+    // Top 5 xG Favoriten
+    const topXG = [...games].sort((a,b)=> (b.homeXG+b.awayXG) - (a.homeXG+a.awayXG)).slice(0,5);
+    let xgHTML = "<h2 class='text-lg font-bold mb-2'>Top 5 Favoriten (xG)</h2><ul class='list-disc pl-5 mb-6'>";
+    topXG.forEach(g=>{
+      xgHTML += `<li>${g.home} vs ${g.away} → ${(g.homeXG+g.awayXG).toFixed(2)} xG</li>`;
+    });
+    xgHTML += "</ul>";
 
-    const topXGHtml = `<div class="mb-6">
-      <h2 class="font-bold text-lg mb-2">Top 5 Favoriten (xG)</h2>
-      <ul class="list-disc ml-5">
-        ${topXG.map(g => `<li>${g.home} vs ${g.away} → ${(g.homeXG+g.awayXG).toFixed(2)} xG</li>`).join("")}
-      </ul>
-    </div>`;
-    statBox.innerHTML += topXGHtml;
+    // Status + Top Tipps anzeigen
+    statusDiv.innerHTML = `${games.length} aktuelle Spiele geladen!` + valueHTML + xgHTML;
 
-    // --- Spiele anzeigen ---
+    // Spiele Karten
     games.forEach(g => {
-      const homeVal = g.value.home * 100;
-      const drawVal = g.value.draw * 100;
-      const awayVal = g.value.away * 100;
-      const overVal = g.value.over25 * 100;
-      const underVal = g.value.under25 * 100;
-
-      // Dynamische Farbintensität basierend auf Value
-      const maxVal = Math.max(homeVal, drawVal, awayVal);
-      const homeColor = `rgba(34,197,94,${homeVal/maxVal})`; // grün
-      const drawColor = `rgba(234,179,8,${drawVal/maxVal})`; // gelb
-      const awayColor = `rgba(239,68,68,${awayVal/maxVal})`; // rot
-
-      const overColor = `rgba(34,197,94,${overVal})`; 
-      const underColor = `rgba(239,68,68,${underVal})`;
-
       const card = document.createElement("div");
       card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-6";
+
+      const homeVal = g.value.home*100;
+      const drawVal = g.value.draw*100;
+      const awayVal = g.value.away*100;
+      const overVal = g.value.over25*100;
+      const underVal = g.value.under25*100;
+
+      // Sieger/Balkenfarbe bestimmen
+      const maxVal = Math.max(homeVal, drawVal, awayVal);
+      const homeColor = homeVal===maxVal?"bg-green-500":"bg-red-500";
+      const drawColor = drawVal===maxVal?"bg-yellow-400":"bg-red-500";
+      const awayColor = awayVal===maxVal?"bg-green-500":"bg-red-500";
+
+      // Over/Under Balkenfarbe
+      const overColor = overVal>=underVal?"bg-green-500":"bg-red-500";
+      const underColor = underVal>overVal?"bg-green-500":"bg-red-500";
 
       card.innerHTML = `
         <div class="flex justify-between items-center mb-3">
@@ -106,29 +106,27 @@ async function loadMatches() {
         </div>
 
         <!-- Balken Sieg/Unentschieden -->
-        <div class="relative h-6 bg-gray-700 rounded-full overflow-hidden mb-2 group">
-          <div class="absolute h-full left-0 top-0" style="width:${homeVal}%;background-color:${homeColor}" title="1: ${homeVal.toFixed(1)}%"></div>
-          <div class="absolute h-full left:${homeVal}% top-0" style="width:${drawVal}%;background-color:${drawColor}" title="X: ${drawVal.toFixed(1)}%"></div>
-          <div class="absolute h-full left:${homeVal+drawVal}% top-0" style="width:${awayVal}%;background-color:${awayColor}" title="2: ${awayVal.toFixed(1)}%"></div>
+        <div class="relative h-6 rounded-full overflow-hidden mb-2 bg-gray-700">
+          <div class="${homeColor} absolute h-full left-0 top-0 transition-all duration-1000" style="width: ${homeVal}%"></div>
+          <div class="${drawColor} absolute h-full left-${homeVal}% top-0 transition-all duration-1000" style="width: ${drawVal}%"></div>
+          <div class="${awayColor} absolute h-full left-${homeVal+drawVal}% top-0 transition-all duration-1000" style="width: ${awayVal}%"></div>
           <span class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm">
-            Hover für Details
+            1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%
           </span>
         </div>
 
         <!-- Balken Over/Under -->
-        <div class="relative h-6 bg-gray-700 rounded-full overflow-hidden group">
-          <div class="absolute h-full left-0 top-0" style="width:${overVal}%;background-color:${overColor}" title="Over: ${overVal.toFixed(1)}%"></div>
-          <div class="absolute h-full left:${overVal}% top-0" style="width:${underVal}%;background-color:${underColor}" title="Under: ${underVal.toFixed(1)}%"></div>
+        <div class="relative h-6 rounded-full overflow-hidden bg-gray-700">
+          <div class="${overColor} absolute h-full left-0 top-0 transition-all duration-1000" style="width: ${overVal}%"></div>
+          <div class="${underColor} absolute h-full left-${overVal}% top-0 transition-all duration-1000" style="width: ${underVal}%"></div>
           <span class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm">
-            Hover für Details
+            Over:${overVal.toFixed(1)}% | Under:${underVal.toFixed(1)}%
           </span>
         </div>
       `;
-
       matchList.appendChild(card);
     });
 
-    statusDiv.textContent = `${games.length} aktuelle Spiele geladen!`;
   } catch (err) {
     statusDiv.textContent = "Fehler: " + err.message;
     console.error(err);
