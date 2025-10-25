@@ -7,7 +7,6 @@ const dateInput = document.getElementById("match-date");
 const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
 
-// Sofort laden
 refreshBtn.addEventListener("click", loadMatches);
 loadMatches();
 
@@ -21,24 +20,6 @@ async function loadMatches() {
   statusDiv.textContent = "Lade aktuelle Spiele...";
   matchList.innerHTML = "";
 
-  // ---- Legende automatisch einfügen (nur einmal) ----
-  if (!document.getElementById("legend-bar")) {
-    const legend = document.createElement("div");
-    legend.id = "legend-bar";
-    legend.className = "flex flex-wrap items-center justify-start gap-3 mb-4 p-3 bg-gray-800 rounded-xl border border-gray-700 text-sm text-gray-200 shadow-md";
-    legend.innerHTML = `
-      <span class="font-bold text-gray-100 mr-2">Legende:</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 bg-green-500 rounded"></span> Over / hoher Value</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 bg-yellow-500 rounded"></span> Neutral / mittlerer Value</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 bg-red-500 rounded"></span> Under / geringer Value</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 bg-blue-500 rounded"></span> Heim-Wahrscheinlichkeit</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 bg-orange-500 rounded"></span> Auswärts-Wahrscheinlichkeit</span>
-      <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 bg-gray-500 rounded"></span> Unentschieden-Wahrscheinlichkeit</span>
-    `;
-    const appRoot = document.getElementById("app") || document.body;
-    appRoot.insertBefore(legend, matchList);
-  }
-
   try {
     const res = await fetch(`/api/games?date=${date}`);
     const { response: games } = await res.json();
@@ -48,38 +29,42 @@ async function loadMatches() {
       return;
     }
 
-    // --- Top 7 Value Tipps + Top 3 xG ---
-    const sortedByValue = [...games].sort((a,b) => Math.max(b.value.home,b.value.draw,b.value.away) - Math.max(a.value.home,a.value.draw,a.value.away));
-    const top7 = sortedByValue.slice(0,7);
-    const sortedByXG = [...games].sort((a,b) => (b.homeXG+b.awayXG)-(a.homeXG+a.awayXG));
-    const top3XG = sortedByXG.slice(0,3);
-
-    let tipHtml = `<div class="mb-4 text-yellow-300 font-semibold">Top 7 Value Tipps</div>`;
-    top7.forEach(g => {
-      const bestVal = Math.max(g.value.home, g.value.draw, g.value.away);
-      const market = bestVal === g.value.home ? "1" : bestVal === g.value.draw ? "X" : "2";
-      tipHtml += `<div>${g.home} vs ${g.away} → ${market} ${Math.round(bestVal*1000)/10}% Value</div>`;
+    // Top 7 Value Tipps
+    const topValue = [...games].sort((a,b)=>Math.max(b.value.home,b.value.draw,b.value.away)-Math.max(a.value.home,a.value.draw,a.value.away)).slice(0,7);
+    let topValueHtml = "<strong>Top 7 Value Tipps</strong><br>";
+    topValue.forEach(g=>{
+      const bestValue = Math.max(g.value.home,g.value.draw,g.value.away);
+      const market = bestValue===g.value.home?"1":bestValue===g.value.draw?"X":"2";
+      const perc = (bestValue*100).toFixed(1);
+      topValueHtml += `${g.home} vs ${g.away} → ${market} ${perc}% Value<br>`;
     });
 
-    tipHtml += `<div class="mt-2 mb-4 text-cyan-300 font-semibold">Top 3 Favoriten (xG)</div>`;
-    top3XG.forEach(g => {
-      tipHtml += `<div>${g.home} vs ${g.away} → ${(g.homeXG+g.awayXG).toFixed(2)} xG</div>`;
+    // Top 3 xG Favoriten
+    const topXG = [...games].sort((a,b)=>(b.homeXG+b.awayXG)-(a.homeXG+a.awayXG)).slice(0,3);
+    let topXGHtml = "<strong>Top 3 Favoriten (xG)</strong><br>";
+    topXG.forEach(g=>{
+      const totalXG = (g.homeXG+g.awayXG).toFixed(2);
+      topXGHtml += `${g.home} vs ${g.away} → ${totalXG} xG<br>`;
     });
 
-    const statBox = document.getElementById("statbox");
-    statBox.innerHTML = tipHtml;
+    document.getElementById("statbox").innerHTML = topValueHtml + "<br>" + topXGHtml;
 
-    // --- Spiele rendern ---
-    let count = 0;
-    for (const g of games) {
-      const bestValue = Math.max(g.value.home, g.value.draw, g.value.away);
-      const valuePercent = (bestValue * 100).toFixed(1);
-      const valueClass = bestValue > 0.12 ? "bg-green-500" : bestValue > 0.05 ? "bg-yellow-500" : "bg-red-500";
-      const market = bestValue === g.value.home ? "1" : bestValue === g.value.draw ? "X" : "2";
+    // Spiele rendern
+    games.forEach(g=>{
+      const bestValue = Math.max(g.value.home,g.value.draw,g.value.away);
+      const valueClass = bestValue>0.12?"green":bestValue>0.05?"yellow":"red";
+      const valuePercent = (bestValue*100).toFixed(1);
+      const market = bestValue===g.value.home?"1":bestValue===g.value.draw?"X":"2";
 
-      const overUnder = g.odds.over25 ? (g.odds.over25>2 ? "Over" : "Under") : "-";
-      const ouValue = g.odds.over25 ? g.odds.over25 : 0;
-      const ouClass = overUnder==="Over"?"bg-green-500":"bg-red-500";
+      // Sieg/Unentschieden Balken
+      const totalProb = g.prob.home+g.prob.draw+g.prob.away;
+      const homePerc = (g.prob.home/totalProb*100).toFixed(1);
+      const drawPerc = (g.prob.draw/totalProb*100).toFixed(1);
+      const awayPerc = (g.prob.away/totalProb*100).toFixed(1);
+
+      // Over/Under Balken
+      const overPerc = (g.prob.over25*100).toFixed(1);
+      const underPerc = ((1-g.prob.over25)*100).toFixed(1);
 
       const card = document.createElement("div");
       card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-4";
@@ -99,28 +84,34 @@ async function loadMatches() {
         <div class="text-amber-300 text-sm mb-2">
           1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
         </div>
-        <div class="text-sm mb-2 text-gray-300">
-          Over 2.5: ${g.odds.over25 ? g.odds.over25.toFixed(2) : "-"}
+
+        <!-- Value Balken -->
+        <div class="valuebar mb-2" title="${market} ${valuePercent}% Value">
+          <div class="valuefill ${valueClass}" style="width:${Math.min(bestValue*120+40,100)}%"></div>
+          <span class="valuetxt">${market} ${valuePercent}% Value</span>
         </div>
 
-        <div class="relative h-6 bg-gray-700 rounded-full overflow-hidden mb-2">
-          <div class="${valueClass} h-full transition-all duration-700" style="width: ${Math.min(bestValue*120+40,100)}%"></div>
-          <span class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm">${market} ${valuePercent}% Value</span>
+        <!-- Sieg/Unentschieden Balken -->
+        <div class="valuebar mb-2" title="1:${homePerc}% X:${drawPerc}% 2:${awayPerc}%">
+          <div class="valuefill green" style="width:${homePerc}%"></div>
+          <div class="valuefill yellow" style="width:${drawPerc}%"></div>
+          <div class="valuefill red" style="width:${awayPerc}%"></div>
+          <span class="valuetxt">1:${homePerc}% X:${drawPerc}% 2:${awayPerc}%</span>
         </div>
 
-        <div class="relative h-4 bg-gray-700 rounded-full overflow-hidden mb-2">
-          <div class="${ouClass} h-full transition-all duration-700" style="width: ${Math.min(ouValue*40,100)}%"></div>
-          <span class="absolute inset-0 flex items-center justify-center text-xs text-white">${overUnder}</span>
+        <!-- Over/Under Balken -->
+        <div class="valuebar" title="Over:${overPerc}% Under:${underPerc}%">
+          <div class="oufill green" style="width:${overPerc}%"></div>
+          <div class="oufill red" style="width:${underPerc}%"></div>
+          <span class="outxt">Over:${overPerc}% Under:${underPerc}%</span>
         </div>
       `;
       matchList.appendChild(card);
-      count++;
-    }
+    });
 
-    statusDiv.textContent = `${count} aktuelle Spiele geladen!`;
-
-  } catch (err) {
-    statusDiv.textContent = "Fehler: " + err.message;
+    statusDiv.textContent = `${games.length} aktuelle Spiele geladen!`;
+  } catch(err) {
+    statusDiv.textContent = "Fehler: "+err.message;
     console.error(err);
   }
 }
