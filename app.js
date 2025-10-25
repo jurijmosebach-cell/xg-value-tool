@@ -1,4 +1,4 @@
-// app.js — HEUTE AUTOMATISCH LADEN
+// app.js — HEUTE AUTOMATISCH + ALLE SPIELE ANZEIGEN
 const matchList = document.getElementById("match-list");
 const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
@@ -9,11 +9,16 @@ const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
 
 refreshBtn.addEventListener("click", loadMatches);
-loadMatches(); // Sofort laden
+
+// Sofort laden
+loadMatches();
 
 async function loadMatches() {
   const date = dateInput.value;
-  if (!date) return;
+  if (!date) {
+    statusDiv.textContent = "Bitte Datum wählen!";
+    return;
+  }
 
   statusDiv.textContent = "Lade aktuelle Spiele...";
   matchList.innerHTML = "";
@@ -23,12 +28,13 @@ async function loadMatches() {
     const { response: games } = await res.json();
 
     if (!games || games.length === 0) {
-      statusDiv.textContent = "Keine Spiele für heute (Quoten noch nicht verfügbar)";
+      statusDiv.textContent = "Keine Spiele für heute (Quoten noch nicht verfügbar – versuche es in 1 Stunde)";
       return;
     }
 
     let count = 0;
     for (const g of games) {
+      // ALLE SPIELE ANZEIGEN – KEIN FILTER!
       const bestValue = Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25, g.value.bttsYes);
       const valuePercent = (bestValue * 100).toFixed(1);
       const valueClass = bestValue > 0.12 ? "bg-green-500" : bestValue > 0.05 ? "bg-yellow-500" : "bg-red-500";
