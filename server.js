@@ -1,4 +1,3 @@
-// server.js — Vollständig stabil für Render
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -24,10 +23,11 @@ const LEAGUES = [
   { key: "soccer_spain_la_liga", name: "La Liga", flag: "es" },
   { key: "soccer_italy_serie_a", name: "Serie A", flag: "it" },
   { key: "soccer_france_ligue_one", name: "Ligue 1", flag: "fr" },
+  { key: "soccer_usa_mls", name: "MLS", flag: "us" },
 ];
 
 function getFlag(team) {
-  const flags = { England: "gb", Germany: "de", Spain: "es", Italy: "it", France: "fr" };
+  const flags = { England: "gb", Germany: "de", Spain: "es", Italy: "it", France: "fr", USA: "us" };
   for (const [country, flag] of Object.entries(flags)) if (team.includes(country)) return flag;
   return "eu";
 }
@@ -42,13 +42,8 @@ app.get("/api/games", async (req, res) => {
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
       const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals&dateFormat=iso&oddsFormat=decimal`;
 
-      console.log(`→ ${league.name}`);
       const response = await fetch(fullUrl);
-      if (!response.ok) {
-        const msg = await response.text();
-        console.warn(`⚠️ HTTP ${response.status} für ${league.name}: ${msg}`);
-        continue;
-      }
+      if (!response.ok) continue;
 
       const data = await response.json();
       if (!Array.isArray(data)) continue;
@@ -108,12 +103,15 @@ app.get("/api/games", async (req, res) => {
     }
   }
 
-  res.json({ response: games });
+  const topGames = games
+    .map(g => ({ ...g, maxValue: Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25) }))
+    .sort((a, b) => b.maxValue - a.maxValue)
+    .slice(0, 7);
+
+  res.json({ response: games, topGames });
 });
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
+app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 
 app.listen(PORT, () => {
   console.log(`LIVE: https://xg-value-tool.onrender.com`);
