@@ -1,4 +1,4 @@
-// server.js — FIXED (100% kompatibel mit aktueller The-Odds-API v4)
+// server.js — STABIL & kompatibel mit aktueller The-Odds-API (ohne BTTS)
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -15,7 +15,7 @@ app.use(express.static(__dirname));
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
 if (!ODDS_API_KEY) {
-  console.error("FEHLER: ODDS_API_KEY fehlt!");
+  console.error("❌ FEHLER: ODDS_API_KEY fehlt in .env Datei!");
 }
 
 const PORT = process.env.PORT || 10000;
@@ -43,9 +43,9 @@ app.get("/api/games", async (req, res) => {
 
   for (const league of LEAGUES) {
     try {
-      // ✅ FIX: korrekter Market-Name laut aktueller API
+      // ✅ Nur Märkte: h2h und totals (BTTS entfernt)
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds`;
-      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals,both_teams_to_score&dateFormat=iso&oddsFormat=decimal`;
+      const fullUrl = `${url}?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals&dateFormat=iso&oddsFormat=decimal`;
 
       console.log(`→ ${league.name}`);
       const response = await fetch(fullUrl);
@@ -70,14 +70,12 @@ app.get("/api/games", async (req, res) => {
         const book = bookmakers[0];
         const h2h = book.markets?.find(m => m.key === "h2h")?.outcomes || [];
         const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
-        const btts = book.markets?.find(m => m.key === "both_teams_to_score")?.outcomes || [];
 
         const odds = {
           home: h2h.find(o => o.name === home)?.price || 0,
           draw: h2h.find(o => o.name === "Draw")?.price || 0,
           away: h2h.find(o => o.name === away)?.price || 0,
           over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
-          bttsYes: btts.find(o => o.name === "Yes")?.price || 0,
         };
 
         if (odds.home === 0 && odds.away === 0) continue;
@@ -91,7 +89,6 @@ app.get("/api/games", async (req, res) => {
           away: awayXG / totalXG,
           draw: 1 - (homeXG / totalXG + awayXG / totalXG),
           over25: 0.55 + Math.random() * 0.15,
-          bttsYes: (homeXG > 0.8 && awayXG > 0.8) ? 0.65 : 0.45,
         };
 
         const value = {
@@ -99,7 +96,6 @@ app.get("/api/games", async (req, res) => {
           draw: odds.draw ? (prob.draw * odds.draw - 1) : 0,
           away: odds.away ? (prob.away * odds.away - 1) : 0,
           over25: odds.over25 ? (prob.over25 * odds.over25 - 1) : 0,
-          bttsYes: odds.bttsYes ? (prob.bttsYes * odds.bttsYes - 1) : 0,
         };
 
         games.push({
