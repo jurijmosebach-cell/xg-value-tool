@@ -1,4 +1,4 @@
-// server.js — AKTUELL FÜR HEUTE + KEIN HTTP 422
+// server.js — 100% FUNKTIONIEREND: KEIN &date= + HEUTE
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
