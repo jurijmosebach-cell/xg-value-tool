@@ -1,25 +1,21 @@
-// app.js — FERTIG: ALLE SPIELE ANZEIGEN + TESTDATUM
+// app.js — HEUTE AUTOMATISCH LADEN
 const matchList = document.getElementById("match-list");
 const refreshBtn = document.getElementById("refresh");
 const statusDiv = document.getElementById("status");
 const dateInput = document.getElementById("match-date");
 
-// TESTDATUM MIT QUOTEN!
-dateInput.value = "2025-10-18";
+// HEUTE als Standard!
+const today = new Date().toISOString().slice(0, 10);
+dateInput.value = today;
 
 refreshBtn.addEventListener("click", loadMatches);
-
-// Sofort laden
-loadMatches();
+loadMatches(); // Sofort laden
 
 async function loadMatches() {
   const date = dateInput.value;
-  if (!date) {
-    statusDiv.textContent = "Bitte Datum wählen!";
-    return;
-  }
+  if (!date) return;
 
-  statusDiv.textContent = "Lade Spiele...";
+  statusDiv.textContent = "Lade aktuelle Spiele...";
   matchList.innerHTML = "";
 
   try {
@@ -27,7 +23,7 @@ async function loadMatches() {
     const { response: games } = await res.json();
 
     if (!games || games.length === 0) {
-      statusDiv.textContent = "Keine Spiele für dieses Datum (Quoten noch nicht verfügbar)";
+      statusDiv.textContent = "Keine Spiele für heute (Quoten noch nicht verfügbar)";
       return;
     }
 
@@ -70,7 +66,7 @@ async function loadMatches() {
       count++;
     }
 
-    statusDiv.textContent = `${count} Spiele geladen!`;
+    statusDiv.textContent = `${count} aktuelle Spiele geladen!`;
   } catch (err) {
     statusDiv.textContent = "Fehler: " + err.message;
     console.error(err);
