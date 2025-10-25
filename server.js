@@ -61,10 +61,10 @@ app.get("/api/games", async (req, res) => {
         const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
 
         const odds = {
-          home: h2h.find(o => o.name === home)?.price || 0.01,
-          draw: h2h.find(o => o.name === "Draw")?.price || 0.01,
-          away: h2h.find(o => o.name === away)?.price || 0.01,
-          over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0.01,
+          home: h2h.find(o => o.name === home)?.price || 1,
+          draw: h2h.find(o => o.name === "Draw")?.price || 1,
+          away: h2h.find(o => o.name === away)?.price || 1,
+          over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 1,
         };
 
         const homeXG = 1.6 + Math.random() * 0.6;
@@ -103,13 +103,11 @@ app.get("/api/games", async (req, res) => {
     }
   }
 
-  // Top 7 Value Tipps
   const topGames = games
     .map(g => ({ ...g, maxValue: Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25) }))
     .sort((a,b) => b.maxValue - a.maxValue)
     .slice(0,7);
 
-  // Top 3 Favoriten basierend auf xG
   const topFavorites = games
     .map(g => {
       const diff = g.homeXG - g.awayXG;
