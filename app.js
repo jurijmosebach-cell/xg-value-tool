@@ -35,10 +35,18 @@ async function loadMatches() {
     let count = 0;
     for (const g of games) {
       // ALLE SPIELE ANZEIGEN – KEIN FILTER!
-      const bestValue = Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25, g.value.bttsYes);
+      const bestValue = Math.max(
+        g.value.home || 0,
+        g.value.draw || 0,
+        g.value.away || 0,
+        g.value.over25 || 0
+      );
       const valuePercent = (bestValue * 100).toFixed(1);
       const valueClass = bestValue > 0.12 ? "bg-green-500" : bestValue > 0.05 ? "bg-yellow-500" : "bg-red-500";
-      const market = bestValue === g.value.home ? "1" : bestValue === g.value.draw ? "X" : bestValue === g.value.away ? "2" : bestValue === g.value.over25 ? "O2.5" : "BTTS";
+      const market = bestValue === g.value.home ? "1" :
+                     bestValue === g.value.draw ? "X" :
+                     bestValue === g.value.away ? "2" :
+                     "O2.5";
 
       const card = document.createElement("div");
       card.className = "bg-gray-800 rounded-xl p-5 shadow-xl border border-gray-700 mb-4";
@@ -55,10 +63,12 @@ async function loadMatches() {
           </div>
         </div>
         <div class="text-amber-300 text-sm mb-2">
-          1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
+          1: ${g.odds.home ? g.odds.home.toFixed(2) : "-"} | 
+          X: ${g.odds.draw ? g.odds.draw.toFixed(2) : "-"} | 
+          2: ${g.odds.away ? g.odds.away.toFixed(2) : "-"}
         </div>
         <div class="text-sm mb-2 text-gray-300">
-          Over 2.5: ${g.odds.over25.toFixed(2)} | BTTS: ${g.odds.bttsYes.toFixed(2)}
+          Over 2.5: ${g.odds.over25 ? g.odds.over25.toFixed(2) : "-"}
         </div>
         <div class="relative h-10 bg-gray-700 rounded-full overflow-hidden">
           <div class="${valueClass} h-full transition-all duration-500" style="width: ${Math.min(bestValue * 120 + 40, 100)}%"></div>
