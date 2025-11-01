@@ -1,58 +1,42 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XG Value Tool PRO</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  .bar-transition { transition: width 1s ease-in-out; }
-  .tooltip {
-    position: relative;
-    display: inline-block;
-  }
-  .tooltip .tooltiptext {
-    visibility: hidden;
-    width: max-content;
-    background-color: #333;
-    color: #fff;
-    text-align: left;
-    padding: 5px 8px;
-    border-radius: 6px;
-    position: absolute;
-    z-index: 10;
-    bottom: 125%;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.8rem;
-    opacity: 0;
-    transition: opacity 0.3s;
-    white-space: nowrap;
-  }
-  .tooltip:hover .tooltiptext {
-    visibility: visible;
-    opacity: 1;
-  }
-</style>
-</head>
-<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center p-4">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>xG Odds Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1>⚽ xG Odds Dashboard</h1>
 
-<h1 class="text-3xl font-bold mb-4">XG Value Tool PRO</h1>
+    <div class="flex flex-wrap justify-center items-center gap-3 mb-4">
+      <label for="match-date" class="font-medium">📅 Datum:</label>
+      <input type="date" id="match-date" class="text-black rounded px-2 py-1" />
 
-<div class="mb-4 flex gap-3 items-center">
-  <label for="match-date">Datum:</label>
-  <input type="date" id="match-date" class="rounded p-1 text-black"/>
-  <button id="refresh" class="bg-blue-600 hover:bg-blue-700 rounded px-3 py-1">Laden</button>
-</div>
+      <label for="league-select" class="font-medium">🏆 Ligen:</label>
+      <select
+        id="league-select"
+        multiple
+        size="6"
+        class="text-black rounded px-2 py-1"
+      >
+        <option value="soccer_epl">Premier League</option>
+        <option value="soccer_germany_bundesliga">Bundesliga</option>
+        <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
+        <option value="soccer_spain_la_liga">La Liga</option>
+        <option value="soccer_italy_serie_a">Serie A</option>
+        <option value="soccer_france_ligue_one">Ligue 1</option>
+        <option value="soccer_netherlands_eredivisie">Eredivisie</option>
+        <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
+      </select>
 
-<div id="status" class="mb-4 text-yellow-400 font-bold">Lade aktuelle Spiele...</div>
+      <button id="refresh">🔄 Spiele laden</button>
+    </div>
 
-<!-- Top Value & xG Tipps -->
-<div id="statbox" class="mb-6 w-full max-w-4xl"></div>
+    <div id="status">Bitte Datum & Ligen auswählen, dann „Spiele laden“ drücken.</div>
+    <div id="match-list"></div>
 
-<!-- Spiele -->
-<div id="match-list" class="w-full max-w-4xl space-y-6"></div>
-
-<script src="/app.js"></script>
-</body>
+    <script src="app.js"></script>
+  </body>
 </html>
