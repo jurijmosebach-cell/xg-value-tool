@@ -40,6 +40,7 @@ for (let i = 1; i <= 20; i++) factorials[i] = factorials[i - 1] * i;
 function poissonPMF(k, lambda) {
   return Math.exp(-lambda) * Math.pow(lambda, k) / factorials[k];
 }
+
 function scoreMatrix(lambdaHome, lambdaAway) {
   const mat = [];
   for (let i = 0; i <= MAX_GOALS; i++) {
@@ -50,6 +51,7 @@ function scoreMatrix(lambdaHome, lambdaAway) {
   }
   return mat;
 }
+
 function probTotalLeK(mat, k) {
   let s = 0;
   for (let i = 0; i <= MAX_GOALS; i++) {
@@ -59,34 +61,34 @@ function probTotalLeK(mat, k) {
   }
   return s;
 }
+
 function probsFromMatrix(mat) {
-  let ph = 0, pd = 0, pa = 0;
+  let pHome = 0, pDraw = 0, pAway = 0;
   for (let i = 0; i <= MAX_GOALS; i++) {
     for (let j = 0; j <= MAX_GOALS; j++) {
-      if (i > j) ph += mat[i][j];
-      else if (i === j) pd += mat[i][j];
-      else pa += mat[i][j];
+      if (i > j) pHome += mat[i][j];
+      else if (i === j) pDraw += mat[i][j];
+      else pAway += mat[i][j];
     }
   }
-  const sum = ph + pd + pa;
-  return { home: ph / sum, draw: pd / sum, away: pa / sum };
+  const sum = pHome + pDraw + pAway;
+  return { home: pHome / sum, draw: pDraw / sum, away: pAway / sum };
 }
-function calcBTTS(home, away) {
-  const p0h = Math.exp(-home);
-  const p0a = Math.exp(-away);
-  return 1 - p0h - p0a + Math.exp(-(home + away));
+
+function calcBTTS(lambdaHome, lambdaAway) {
+  const p0h = Math.exp(-lambdaHome);
+  const p0a = Math.exp(-lambdaAway);
+  return 1 - p0h - p0a + Math.exp(-(lambdaHome + lambdaAway));
 }
 
 // -------------------------------------------------
-// 1️⃣ Hole Spiele aus SoccerData (wenn verfügbar)
+// 1️⃣ Hole Spiele aus SoccerData
 // -------------------------------------------------
 async function getSoccerDataMatches() {
   try {
     const res = await fetch(
       `https://api.soccerdataapi.com/livescores/?auth_token=${SOCCERDATA_KEY}`,
-      {
-        headers: { "Content-Type": "application/json", "Accept-Encoding": "gzip" },
-      }
+      { headers: { "Content-Type": "application/json", "Accept-Encoding": "gzip" } }
     );
     const data = await res.json();
     if (!data.results || data.results.length === 0) return [];
@@ -121,8 +123,8 @@ async function getOddsAPIMatches() {
 
       for (const g of data) {
         if (!g.commence_time?.startsWith(today)) continue;
-        const home = g.home_team;
-        const away = g.away_team;
+        const homeTeam = g.home_team;
+        const awayTeam = g.away_team;
         const book = g.bookmakers?.[0];
         if (!book) continue;
 
@@ -130,9 +132,9 @@ async function getOddsAPIMatches() {
         const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
 
         const odds = {
-          home: h2h.find(o => o.name === home)?.price || 0,
+          home: h2h.find(o => o.name === homeTeam)?.price || 0,
           draw: h2h.find(o => o.name === "Draw")?.price || 0,
-          away: h2h.find(o => o.name === away)?.price || 0,
+          away: h2h.find(o => o.name === awayTeam)?.price || 0,
           over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
           under25: totals.find(o => o.name === "Under" && o.point === 2.5)?.price || 0,
         };
@@ -162,8 +164,8 @@ async function getOddsAPIMatches() {
         };
 
         games.push({
-          home: g.home_team,
-          away: g.away_team,
+          home: homeTeam,
+          away: awayTeam,
           league: league.name,
           commence_time: g.commence_time,
           odds,
@@ -195,10 +197,9 @@ app.get("/api/games", async (req, res) => {
     return res.json({ response: [], message: "Keine Spiele gefunden." });
   }
 
-  // Sortierung & Top-Listen
   const top7 = games.slice(0, 7);
-  const topOver = [...games].sort((a, b) => b.prob?.over25 - a.prob?.over25).slice(0, 5);
-  const topBTTS = [...games].sort((a, b) => b.prob?.btts - a.prob?.btts).slice(0, 5);
+  const topOver = [...games].sort((a, b) => (b.prob?.over25 || 0) - (a.prob?.over25 || 0)).slice(0, 5);
+  const topBTTS = [...games].sort((a, b) => (b.prob?.btts || 0) - (a.prob?.btts || 0)).slice(0, 5);
 
   res.json({ response: games, top7, topOver, topBTTS });
 });
