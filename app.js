@@ -92,6 +92,30 @@ async function loadMatches() {
         .join("")}</ul>`;
     matchList.appendChild(topBTTSSection);
 
+Teil 2: Top 5 Value-Märkte, Spiele-Karten & Tendenzen (2/2)
+
+// -----------------------------
+    // Top 5 Value-Märkte
+    // -----------------------------
+    const markets = ["home", "draw", "away", "over25", "btts"];
+    markets.forEach(market => {
+      const topValue = [...games]
+        .filter(g => g.value[market] !== undefined)
+        .sort((a, b) => b.value[market] - a.value[market])
+        .slice(0, 5);
+
+      const section = document.createElement("div");
+      section.className = "top-section";
+      section.innerHTML = `<h2>💰 Top 5 Value ${market.toUpperCase()}</h2>
+        <ul>${topValue
+          .map(
+            g =>
+              `<li>${g.home} vs ${g.away} → Value: <span style="color:${g.value[market] > 0 ? "green" : "red"}">${g.value[market].toFixed(4)}</span> | Trefferchance: ${(g.prob[market] * 100).toFixed(1)}%</li>`
+          )
+          .join("")}</ul>`;
+      matchList.appendChild(section);
+    });
+
     // -----------------------------
     // Spiele-Karten
     // -----------------------------
@@ -114,18 +138,6 @@ async function loadMatches() {
 
       const trendOver = overVal > 50 ? "Over 2.5" : "Under 2.5";
       const trendBTTS = bttsVal > 50 ? "BTTS: JA" : "BTTS: NEIN";
-
-      const bestChance = Math.max(homeVal, drawVal, awayVal, overVal, bttsVal);
-      const bestMarket =
-        bestChance === homeVal
-          ? "1"
-          : bestChance === drawVal
-          ? "X"
-          : bestChance === awayVal
-          ? "2"
-          : bestChance === overVal
-          ? "Over 2.5"
-          : "BTTS Ja";
 
       card.innerHTML = `
         <div class="match-header mb-3">
@@ -167,23 +179,21 @@ async function loadMatches() {
           <div class="bar-text">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100 - bttsVal).toFixed(1)}%</div>
         </div>
 
-        <div class="trend">
+        <div class="trend mt-2">
           <span class="trend-${trend === "Heimsieg" ? "home" : trend === "Auswärtssieg" ? "away" : "draw"}">${trend}</span>
           <span class="trend-${trendOver.includes("Over") ? "over" : "under"}">${trendOver}</span>
           <span class="trend-${trendBTTS.includes("JA") ? "btts-yes" : "btts-no"}">${trendBTTS}</span>
         </div>
-
-        <div class="text-center mt-3 font-semibold text-blue-600">
-          👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
-        </div>
       `;
-
       matchList.appendChild(card);
     });
 
-    statusDiv.textContent = `${games.length} Spiele geladen!`;
+    statusDiv.textContent = `✅ ${games.length} Spiele geladen.`;
   } catch (err) {
-    statusDiv.textContent = "Fehler: " + err.message;
     console.error(err);
+    statusDiv.textContent = "Fehler beim Laden der Spiele.";
   }
 }
+
+// Initial load
+loadMatches();
