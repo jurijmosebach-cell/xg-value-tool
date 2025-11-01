@@ -1,3 +1,4 @@
+/* 🌑 Global Dark Theme */
 body {
   font-family: "Inter", sans-serif;
   background-color: #0f172a;
@@ -22,6 +23,7 @@ button {
   cursor: pointer;
   transition: all 0.2s ease;
 }
+
 button:hover {
   background-color: #1d4ed8;
   transform: scale(1.05);
@@ -34,6 +36,7 @@ button:hover {
   font-weight: 500;
 }
 
+/* 📅 Input + Select Styling */
 input[type="date"],
 select {
   background-color: #1e293b;
@@ -45,12 +48,14 @@ select {
   outline: none;
   transition: all 0.2s;
 }
+
 input[type="date"]:focus,
 select:focus {
   border-color: #38bdf8;
   box-shadow: 0 0 4px #38bdf8;
 }
 
+/* ⚽ Match Cards */
 #match-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -65,9 +70,17 @@ select:focus {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   transition: all 0.2s ease;
 }
+
 .match-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* 🧱 Team Layout */
+.match-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .team {
@@ -75,20 +88,24 @@ select:focus {
   align-items: center;
   gap: 10px;
 }
+
 .team img {
   width: 42px;
   height: 42px;
   border-radius: 50%;
 }
+
 .team-name {
   font-weight: 700;
   color: #f8fafc;
 }
+
 .team-xg {
   color: #94a3b8;
   font-size: 13px;
 }
 
+/* 🎯 Probability Bars */
 .bar-container {
   position: relative;
   height: 24px;
@@ -97,12 +114,14 @@ select:focus {
   background-color: #334155;
   margin-bottom: 8px;
 }
+
 .bar-fill {
   height: 100%;
   position: absolute;
   top: 0;
   left: 0;
 }
+
 .bar-text {
   position: absolute;
   width: 100%;
@@ -115,8 +134,10 @@ select:focus {
   font-weight: 600;
   color: #f8fafc;
   font-size: 13px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
+/* Farbverläufe für verschiedene Balken */
 .bar-home {
   background: linear-gradient(90deg, #22c55e, #16a34a);
 }
@@ -139,11 +160,13 @@ select:focus {
   background: linear-gradient(90deg, #64748b, #475569);
 }
 
+/* 🧩 Tendenzen */
 .trend {
   text-align: center;
   margin-top: 8px;
   font-size: 14px;
 }
+
 .trend span {
   display: inline-block;
   margin: 2px 6px;
@@ -151,6 +174,7 @@ select:focus {
   border-radius: 8px;
   font-weight: 600;
 }
+
 .trend-home {
   background: rgba(34, 197, 94, 0.2);
   color: #22c55e;
