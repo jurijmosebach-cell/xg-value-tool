@@ -7,34 +7,19 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css" />
     <style>
-      .bar-container { position: relative; height: 20px; background: #ccc; border-radius: 6px; margin-bottom: 4px; overflow: hidden; }
-      .bar-fill { height: 100%; border-radius: 6px; }
-      .bar-text { position: absolute; left: 8px; top: 0; height: 100%; display: flex; align-items: center; font-weight: bold; color: #000; font-size: 0.85rem; }
-      .bar-home { background-color: #19e378; }
-      .bar-draw { background-color: #ffe56c; }
-      .bar-away { background-color: #ff4a58; }
-      .bar-over { background-color: #29a9ff; }
-      .bar-btts-yes { background-color: #ff77aa; }
-      .bar-player { background-color: #ffbb33; }
-      .trend { display: flex; gap: 10px; margin-top: 6px; font-weight: bold; }
-      .trend-home { color: #19e378; }
-      .trend-away { color: #ff4a58; }
-      .trend-draw { color: #ffe56c; }
-      .trend-over { color: #29a9ff; }
-      .trend-under { color: #0066cc; }
-      .trend-btts-yes { color: #ff77aa; }
-      .trend-btts-no { color: #999; }
+      body { background: #f5f5f5; color: #1a1a1a; font-family: sans-serif; }
+      .match-card { background: #fff; }
     </style>
   </head>
-  <body class="bg-gray-100 text-gray-900 p-4">
-    <h1 class="text-3xl font-bold mb-4">⚽ xG Odds Dashboard</h1>
+  <body class="p-4">
+    <h1 class="text-2xl font-bold mb-4">⚽ xG Odds Dashboard</h1>
 
-    <div class="flex flex-wrap gap-3 mb-4 items-center">
-      <label for="match-date" class="font-medium">📅 Datum:</label>
+    <div class="flex flex-wrap gap-3 mb-4">
+      <label for="match-date">📅 Datum:</label>
       <input type="date" id="match-date" class="text-black rounded px-2 py-1" />
 
-      <label for="league-select" class="font-medium">🏆 Ligen:</label>
-      <select id="league-select" multiple size="8" class="text-black rounded px-2 py-1">
+      <label for="league-select">🏆 Ligen:</label>
+      <select id="league-select" multiple size="10" class="text-black rounded px-2 py-1">
         <option value="soccer_epl">Premier League</option>
         <option value="soccer_germany_bundesliga">Bundesliga</option>
         <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
@@ -43,17 +28,14 @@
         <option value="soccer_france_ligue_one">Ligue 1</option>
         <option value="soccer_netherlands_eredivisie">Eredivisie</option>
         <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
-        <option value="soccer_turkey_super_league">Turkey Super League</option>
+        <option value="soccer_turkey_super_league">Turkey Süper Lig</option>
         <option value="soccer_uefa_europa_conference_league">UEFA Europa Conference League</option>
         <option value="soccer_uefa_champs_league">UEFA Champions League</option>
-        <option value="soccer_uefa_champs_league_qualification">UEFA Champions League Qualification</option>
-        <option value="soccer_usa_mls">MLS</option>
+        <option value="soccer_uefa_champs_league_qualification">Champions League Qualification</option>
+        <option value="soccer_usa_mls">Major League Soccer (USA)</option>
       </select>
 
-      <label for="player-select" class="font-medium">⚽ Spieler / Torschützen:</label>
-      <select id="player-select" multiple size="6" class="text-black rounded px-2 py-1"></select>
-
-      <button id="refresh" class="bg-blue-500 hover:bg-blue-600 text-white rounded px-3 py-1">🔄 Spiele laden</button>
+      <button id="refresh" class="px-3 py-1 bg-blue-600 text-white rounded">🔄 Spiele laden</button>
     </div>
 
     <div id="status" class="mb-4 font-semibold">Bitte Datum & Ligen auswählen, dann „Spiele laden“ drücken.</div>
