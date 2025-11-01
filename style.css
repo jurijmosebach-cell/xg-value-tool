@@ -1,95 +1,64 @@
-/* ===== Global ===== */
 body {
-  background: #f5f6fa;
-  color: #1e272e;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: Arial, sans-serif;
+  background-color: #f9f9f9;
+  color: #1a202c;
   margin: 0;
-  padding: 20px;
+  padding: 1rem;
 }
 
 h1 {
   text-align: center;
+  margin-bottom: 1.5rem;
   font-size: 2rem;
-  margin-bottom: 20px;
-  color: #2f3640;
 }
 
-/* ===== Inputs & Buttons ===== */
-input, select, button {
-  font-size: 16px;
-  border-radius: 6px;
-  padding: 6px 12px;
-  margin: 2px 0;
-  border: 1px solid #dcdde1;
-  background: #fff;
-  color: #2f3640;
-}
-
-button {
-  cursor: pointer;
-  background: linear-gradient(90deg, #00a8ff 30%, #9c88ff 80%);
-  color: #fff;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-button:hover {
-  background: linear-gradient(90deg, #9c88ff 20%, #00a8ff 90%);
-}
-
-/* ===== Status ===== */
-#status {
-  font-size: 16px;
-  font-weight: 500;
-  margin: 10px 0;
-  color: #2f3640;
-}
-
-/* ===== Top-Listen ===== */
 .top-section {
-  background: #dcdde1;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 15px;
+  background: #e2e8f0;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .top-section h2 {
-  font-size: 1.1rem;
-  margin-bottom: 6px;
-  color: #718093;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
 }
 
 .top-section ul {
-  padding-left: 20px;
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
 }
 
 .top-section li {
-  margin-bottom: 3px;
-  color: #2f3640;
+  padding: 0.25rem 0;
 }
 
-/* ===== Match Karten ===== */
 .match-card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 12px 15px;
-  margin-bottom: 15px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-  border-left: 5px solid #00a8ff;
-  transition: transform 0.1s, box-shadow 0.2s;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-.match-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-}
-
-/* ===== Teams Header ===== */
-.match-card .flex {
+.match-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+}
+
+.team {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.team img {
+  width: 48px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 0.25rem;
 }
 
 .team-name {
@@ -97,78 +66,112 @@ button:hover {
 }
 
 .team-xg {
-  font-size: 0.85rem;
-  color: #718093;
+  font-size: 0.75rem;
+  color: #4a5568;
 }
 
-/* ===== Bars ===== */
 .bar-container {
-  position: relative;
-  height: 20px;
-  background: #dcdde1;
-  border-radius: 10px;
-  margin-bottom: 5px;
+  background: #edf2f7;
+  height: 1.5rem;
+  border-radius: 0.375rem;
   overflow: hidden;
+  position: relative;
+  margin-bottom: 0.25rem;
 }
 
 .bar-fill {
-  position: absolute;
   height: 100%;
-  left: 0;
-  top: 0;
-  border-radius: 10px;
-  width: 0; /* Startwert für Animation */
-  transition: width 1s ease-in-out; /* Animation */
+  text-align: right;
+  padding-right: 0.25rem;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: bold;
+  line-height: 1.5rem;
 }
 
-.bar-home { background: #00a8ff; }
-.bar-over { background: #9c88ff; }
-.bar-btts-yes { background: #e1b12c; }
+.bar-home {
+  background: #3b82f6;
+}
+
+.bar-over {
+  background: #f59e0b;
+}
+
+.bar-btts-yes {
+  background: #10b981;
+}
 
 .bar-text {
   position: absolute;
-  left: 10px;
-  top: 1px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #fff;
-  text-shadow: 0 0 3px rgba(0,0,0,0.5);
+  left: 0.5rem;
+  top: 0;
+  height: 100%;
+  line-height: 1.5rem;
+  font-size: 0.75rem;
+  color: #1a202c;
 }
 
-/* ===== Trendanzeige ===== */
 .trend {
   display: flex;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
   flex-wrap: wrap;
 }
 
-.trend span {
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 0.8rem;
+.trend-home,
+.trend-over,
+.trend-btts-yes {
+  background: #3b82f6;
   color: #fff;
-}
-
-.trend-home { background: #00a8ff; }
-.trend-away { background: #9c88ff; }
-.trend-draw { background: #718093; }
-.trend-over { background: #9c88ff; }
-.trend-under { background: #dcdde1; color:#2f3640; }
-.trend-btts-yes { background: #e1b12c; color:#fff; }
-.trend-btts-no { background: #dcdde1; color:#2f3640; }
-
-/* ===== Empfehlung ===== */
-.match-card .text-center {
-  margin-top: 8px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #00a8ff;
 }
 
-/* ===== Responsive ===== */
-@media(max-width: 600px){
-  .match-card .flex { flex-direction: column; align-items: flex-start; }
-  .bar-text { font-size: 0.7rem; left: 5px; }
-  .trend span { font-size: 0.7rem; padding: 2px 5px; }
+.trend-away,
+.trend-under,
+.trend-btts-no {
+  background: #ef4444;
+  color: #fff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.trend-draw {
+  background: #fbbf24;
+  color: #1a202c;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Buttons & Inputs */
+#refresh {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#refresh:hover {
+  background: #2563eb;
+}
+
+input[type="date"],
+select {
+  border: 1px solid #cbd5e1;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+}
+
+#status {
+  margin-bottom: 1rem;
+  font-weight: 500;
 }
