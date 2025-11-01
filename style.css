@@ -1,198 +1,172 @@
+/* ===== Global ===== */
 body {
-  font-family: "Inter", sans-serif;
-  background-color: #f1f5f9; /* heller Hintergrund */
-  color: #0f172a;
+  background: #f5f6fa; /* heller Hintergrund */
+  color: #1e272e;
+  font-family: 'Segoe UI', Arial, sans-serif;
   margin: 0;
   padding: 20px;
 }
 
 h1 {
-  color: #2563eb;
   text-align: center;
+  font-size: 2rem;
   margin-bottom: 20px;
+  color: #2f3640;
+}
+
+/* ===== Inputs & Buttons ===== */
+input, select, button {
+  font-size: 16px;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin: 2px 0;
+  border: 1px solid #dcdde1;
+  background: #fff;
+  color: #2f3640;
 }
 
 button {
-  background-color: #2563eb;
-  color: white;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 12px;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-}
-button:hover {
-  background-color: #1d4ed8;
-  transform: scale(1.05);
-}
-
-#status {
-  margin: 10px 0 20px;
-  color: #ca8a04;
-  text-align: center;
+  background: linear-gradient(90deg, #00a8ff 30%, #9c88ff 80%);
+  color: #fff;
   font-weight: 600;
+  transition: background 0.2s;
 }
 
-input[type="date"],
-select {
-  background-color: #e2e8f0;
-  color: #1e293b;
-  border: 1px solid #94a3b8;
-  border-radius: 10px;
-  padding: 6px 10px;
-  font-size: 14px;
-  outline: none;
-  transition: all 0.2s;
-}
-input[type="date"]:focus,
-select:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 4px #2563eb;
+button:hover {
+  background: linear-gradient(90deg, #9c88ff 20%, #00a8ff 90%);
 }
 
-#match-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 20px;
+/* ===== Status ===== */
+#status {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 10px 0;
+  color: #2f3640;
 }
 
+/* ===== Top-Listen ===== */
+.top-section {
+  background: #dcdde1;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.top-section h2 {
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+  color: #718093;
+}
+
+.top-section ul {
+  padding-left: 20px;
+}
+
+.top-section li {
+  margin-bottom: 3px;
+  color: #2f3640;
+}
+
+/* ===== Match Karten ===== */
 .match-card {
-  background-color: #ffffff;
-  border-radius: 16px;
-  padding: 20px;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  border-left: 5px solid #00a8ff;
+  transition: transform 0.1s, box-shadow 0.2s;
 }
+
 .match-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
 }
 
-.team {
+/* ===== Teams Header ===== */
+.match-card .flex {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-}
-.team img {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-}
-.team-name {
-  font-weight: 700;
-  color: #0f172a;
-}
-.team-xg {
-  color: #475569;
-  font-size: 13px;
+  margin-bottom: 10px;
 }
 
+.team-name {
+  font-weight: 600;
+}
+
+.team-xg {
+  font-size: 0.85rem;
+  color: #718093;
+}
+
+/* ===== Bars ===== */
 .bar-container {
   position: relative;
-  height: 24px;
-  border-radius: 12px;
+  height: 20px;
+  background: #dcdde1;
+  border-radius: 10px;
+  margin-bottom: 5px;
   overflow: hidden;
-  background-color: #e2e8f0;
-  margin-bottom: 8px;
 }
+
 .bar-fill {
-  height: 100%;
   position: absolute;
-  top: 0;
-  left: 0;
+  height: 100%;
+  left: 0; top: 0;
+  border-radius: 10px;
 }
+
+.bar-home { background: #00a8ff; }
+.bar-over { background: #9c88ff; }
+.bar-btts-yes { background: #e1b12c; }
+.bar-player { background: #44bd32; }
+
 .bar-text {
   position: absolute;
-  width: 100%;
-  height: 100%;
-  top: 0;
-  left: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  left: 10px;
+  top: 1px;
+  font-size: 0.8rem;
   font-weight: 600;
-  color: #0f172a;
-  font-size: 13px;
+  color: #fff;
+  text-shadow: 0 0 3px rgba(0,0,0,0.5);
 }
 
-.bar-home {
-  background: linear-gradient(90deg, #22c55e, #16a34a);
-}
-.bar-draw {
-  background: linear-gradient(90deg, #facc15, #eab308);
-}
-.bar-away {
-  background: linear-gradient(90deg, #ef4444, #dc2626);
-}
-.bar-over {
-  background: linear-gradient(90deg, #22c55e, #15803d);
-}
-.bar-under {
-  background: linear-gradient(90deg, #ef4444, #991b1b);
-}
-.bar-btts-yes {
-  background: linear-gradient(90deg, #38bdf8, #0ea5e9);
-}
-.bar-btts-no {
-  background: linear-gradient(90deg, #94a3b8, #64748b);
-}
-
+/* ===== Trendanzeige ===== */
 .trend {
-  text-align: center;
+  display: flex;
+  gap: 10px;
   margin-top: 8px;
-  font-size: 14px;
-}
-.trend span {
-  display: inline-block;
-  margin: 2px 6px;
-  padding: 3px 8px;
-  border-radius: 8px;
-  font-weight: 600;
-}
-.trend-home {
-  background: rgba(34, 197, 94, 0.15);
-  color: #15803d;
-}
-.trend-away {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
-}
-.trend-draw {
-  background: rgba(250, 204, 21, 0.15);
-  color: #a16207;
-}
-.trend-over {
-  background: rgba(34, 197, 94, 0.15);
-  color: #15803d;
-}
-.trend-under {
-  background: rgba(239, 68, 68, 0.15);
-  color: #b91c1c;
-}
-.trend-btts-yes {
-  background: rgba(56, 189, 248, 0.15);
-  color: #0ea5e9;
-}
-.trend-btts-no {
-  background: rgba(100, 116, 139, 0.15);
-  color: #475569;
+  flex-wrap: wrap;
 }
 
-.top-section {
-  background-color: #ffffff;
-  border-radius: 16px;
-  padding: 15px;
-  border: 1px solid #cbd5e1;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
-  margin-bottom: 25px;
+.trend span {
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #fff;
 }
-.top-section h2 {
-  color: #2563eb;
-  margin-bottom: 10px;
-  text-align: center;
+
+.trend-home { background: #00a8ff; }
+.trend-away { background: #9c88ff; }
+.trend-draw { background: #718093; }
+.trend-over { background: #9c88ff; }
+.trend-under { background: #dcdde1; color:#2f3640; }
+.trend-btts-yes { background: #e1b12c; color:#fff; }
+.trend-btts-no { background: #dcdde1; color:#2f3640; }
+
+/* ===== Empfehlung ===== */
+.match-card .text-center {
+  margin-top: 8px;
+  font-weight: 600;
+  color: #00a8ff;
 }
-.top-section li {
-  margin-bottom: 6px;
+
+/* ===== Responsive ===== */
+@media(max-width: 600px){
+  .match-card .flex { flex-direction: column; align-items: flex-start; }
+  .bar-text { font-size: 0.7rem; left: 5px; }
+  .trend span { font-size: 0.7rem; padding: 2px 5px; }
 }
