@@ -21,16 +21,17 @@ async function loadMatches() {
 
   try {
     const res = await fetch(`/api/games?date=${date}&leagues=${leagues.join(",")}`);
-    const { response: games } = await res.json();
+    const data = await res.json();
+    const games = data.response;
 
     if (!games || games.length === 0) {
       statusDiv.textContent = "Keine Spiele gefunden.";
       return;
     }
 
-    // -----------------------------
-    // Top 7 nach Wahrscheinlichkeit (1X2)
-    // -----------------------------
+    // -----------------------
+    // Top 7 nach Wahrscheinlichkeit
+    // -----------------------
     const top7 = [...games]
       .map(g => {
         const best =
@@ -44,74 +45,76 @@ async function loadMatches() {
       .sort((a, b) => b.best.val - a.best.val)
       .slice(0, 7);
 
-    const top7Section = document.createElement("div");
-    top7Section.className = "top-section mb-4";
-    top7Section.innerHTML = `<h2>🏅 Top 7 Siegwahrscheinlichkeiten</h2>
+    const topSection = document.createElement("div");
+    topSection.className = "top-section";
+    topSection.innerHTML = `<h2>🏅 Top 7 Siegwahrscheinlichkeiten</h2>
       <ul>${top7
         .map(
           g =>
-            `<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> mit ${(g.best.val*100).toFixed(1)}%</li>`
+            `<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> mit ${(g.best.val * 100).toFixed(1)}%</li>`
         )
         .join("")}</ul>`;
-    matchList.appendChild(top7Section);
+    matchList.appendChild(topSection);
 
-    // -----------------------------
-    // Top 5 Over 2.5
-    // -----------------------------
-    const topOver = [...games]
-      .sort((a, b) => b.prob.over25 - a.prob.over25)
-      .slice(0, 5);
+    // -----------------------
+    // Top 5 Value / Over / BTTS
+    // -----------------------
+    const createTopList = (title, arr) => {
+      const div = document.createElement("div");
+      div.className = "top-section";
+      div.innerHTML = `<h2>${title}</h2>
+        <ul>${arr
+          .map(
+            g =>
+              `<li>${g.home} vs ${g.away} → ${g.bestValueMarket.toUpperCase()} (${g.prob.toFixed(1)}%, Value: ${g.value.toFixed(2)})</li>`
+          )
+          .join("")}</ul>`;
+      return div;
+    };
 
-    const topOverSection = document.createElement("div");
-    topOverSection.className = "top-section mb-4";
-    topOverSection.innerHTML = `<h2>⚡ Top 5 Over 2,5 Wahrscheinlichkeit</h2>
-      <ul>${topOver
-        .map(
-          g =>
-            `<li>${g.home} vs ${g.away} → ${(g.prob.over25*100).toFixed(1)}% Wahrscheinlichkeit | Liga: ${g.league}</li>`
-        )
-        .join("")}</ul>`;
-    matchList.appendChild(topOverSection);
+    matchList.appendChild(createTopList("🔥 Top 5 Value", [
+      ...data.topByValue.home,
+      ...data.topByValue.draw,
+      ...data.topByValue.over25,
+      ...data.topByValue.btts
+    ].sort((a,b)=>b.value-a.value).slice(0,5)));
 
-    // -----------------------------
-    // Top 5 BTTS
-    // -----------------------------
-    const topBTTS = [...games]
-      .sort((a, b) => b.prob.btts - a.prob.btts)
-      .slice(0, 5);
+    matchList.appendChild(createTopList("⚡ Top 5 Over 2,5", data.topByProb.over25));
+    matchList.appendChild(createTopList("💥 Top 5 BTTS", data.topByProb.btts));
 
-    const topBTTSSection = document.createElement("div");
-    topBTTSSection.className = "top-section mb-4";
-    topBTTSSection.innerHTML = `<h2>⚡ Top 5 BTTS Wahrscheinlichkeit</h2>
-      <ul>${topBTTS
-        .map(
-          g =>
-            `<li>${g.home} vs ${g.away} → ${(g.prob.btts*100).toFixed(1)}% Wahrscheinlichkeit | Liga: ${g.league}</li>`
-        )
-        .join("")}</ul>`;
-    matchList.appendChild(topBTTSSection);
-
-    // -----------------------------
+    // -----------------------
     // Spiele-Karten
-    // -----------------------------
+    // -----------------------
     games.forEach(g => {
       const card = document.createElement("div");
-      card.className = "match-card mb-4";
+      card.className = "match-card";
 
-      const homeVal = g.prob.home*100;
-      const drawVal = g.prob.draw*100;
-      const awayVal = g.prob.away*100;
-      const overVal = g.prob.over25*100;
-      const bttsVal = g.prob.btts*100;
+      const homeVal = g.prob.home * 100;
+      const drawVal = g.prob.draw * 100;
+      const awayVal = g.prob.away * 100;
+      const overVal = g.prob.over25 * 100;
+      const bttsVal = g.prob.btts * 100;
 
-      const trend = homeVal > awayVal && homeVal > drawVal
-        ? "Heimsieg"
-        : awayVal > homeVal && awayVal > drawVal
-        ? "Auswärtssieg"
-        : "Unentschieden";
-
+      const trend =
+        homeVal > awayVal && homeVal > drawVal
+          ? "Heimsieg"
+          : awayVal > homeVal && awayVal > drawVal
+          ? "Auswärtssieg"
+          : "Unentschieden";
       const trendOver = overVal > 50 ? "Over 2.5" : "Under 2.5";
-      const trendBTTS = bttsVal > 50 ? "BTTS: Ja" : "BTTS: Nein";
+      const trendBTTS = bttsVal > 50 ? "BTTS: JA" : "BTTS: NEIN";
+
+      const bestChance = Math.max(homeVal, drawVal, awayVal, overVal, bttsVal);
+      const bestMarket =
+        bestChance === homeVal
+          ? "1"
+          : bestChance === drawVal
+          ? "X"
+          : bestChance === awayVal
+          ? "2"
+          : bestChance === overVal
+          ? "Over 2.5"
+          : "BTTS Ja";
 
       card.innerHTML = `
         <div class="match-header mb-3">
@@ -145,18 +148,22 @@ async function loadMatches() {
 
         <div class="bar-container mb-2">
           <div class="bar-fill bar-over" style="width:${overVal}%"></div>
-          <div class="bar-text">Over:${overVal.toFixed(1)}% | Under:${(100-overVal).toFixed(1)}%</div>
+          <div class="bar-text">Over:${overVal.toFixed(1)}% | Under:${(100 - overVal).toFixed(1)}%</div>
         </div>
 
-        <div class="bar-container mb-2">
+        <div class="bar-container">
           <div class="bar-fill bar-btts-yes" style="width:${bttsVal}%"></div>
-          <div class="bar-text">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100-bttsVal).toFixed(1)}%</div>
+          <div class="bar-text">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100 - bttsVal).toFixed(1)}%</div>
         </div>
 
-        <div class="trend">
+        <div class="trend mt-2">
           <span class="trend-${trend === "Heimsieg" ? "home" : trend === "Auswärtssieg" ? "away" : "draw"}">${trend}</span>
           <span class="trend-${trendOver.includes("Over") ? "over" : "under"}">${trendOver}</span>
-          <span class="trend-${trendBTTS.includes("Ja") ? "btts-yes" : "btts-no"}">${trendBTTS}</span>
+          <span class="trend-${trendBTTS.includes("JA") ? "btts-yes" : "btts-no"}">${trendBTTS}</span>
+        </div>
+
+        <div class="text-center mt-3 font-semibold text-blue-600">
+          👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
         </div>
       `;
 
