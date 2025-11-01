@@ -29,83 +29,86 @@ async function loadMatches() {
     }
 
     // -----------------------------
-    // Kombinierte Top-Liste nach Value
+    // Top 7 nach Wahrscheinlichkeit (1X2)
     // -----------------------------
-    const combinedTop = [];
+    const top7 = [...games]
+      .map(g => {
+        const best =
+          g.prob.home > g.prob.away && g.prob.home > g.prob.draw
+            ? { type: "1", val: g.prob.home }
+            : g.prob.away > g.prob.home && g.prob.away > g.prob.draw
+            ? { type: "2", val: g.prob.away }
+            : { type: "X", val: g.prob.draw };
+        return { ...g, best };
+      })
+      .sort((a, b) => b.best.val - a.best.val)
+      .slice(0, 7);
 
-    games.forEach(g => {
-      // Märkte: home, draw, away, over25, btts
-      const markets = ["home", "draw", "away", "over25", "btts"];
-      markets.forEach(market => {
-        if (g.value[market] > 0) {
-          const trend =
-            market === "over25"
-              ? g.prob.over25 > 50 ? "Over 2.5" : "Under 2.5"
-              : market === "btts"
-              ? g.prob.btts > 50 ? "BTTS: Ja" : "BTTS: Nein"
-              : market === "home"
-              ? "Heimsieg"
-              : market === "away"
-              ? "Auswärtssieg"
-              : "Unentschieden";
-
-          combinedTop.push({
-            home: g.home,
-            away: g.away,
-            league: g.league,
-            commence_time: g.commence_time,
-            market,
-            trend,
-            value: g.value[market],
-            probability: +(g.prob[market !== "btts" ? market : "btts"] * 100).toFixed(1),
-          });
-        }
-      });
-    });
-
-    // Sortiere nach Value absteigend und nehme Top 10
-    combinedTop.sort((a, b) => b.value - a.value);
-    const top10Combined = combinedTop.slice(0, 10);
+    const top7Section = document.createElement("div");
+    top7Section.className = "top-section mb-4";
+    top7Section.innerHTML = `<h2>🏅 Top 7 Siegwahrscheinlichkeiten</h2>
+      <ul>${top7
+        .map(
+          g =>
+            `<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> mit ${(g.best.val*100).toFixed(1)}%</li>`
+        )
+        .join("")}</ul>`;
+    matchList.appendChild(top7Section);
 
     // -----------------------------
-    // Anzeige kombinierte Top-Liste
+    // Top 5 Over 2.5
     // -----------------------------
-    if (top10Combined.length) {
-      const topSection = document.createElement("div");
-      topSection.className = "top-section mb-4";
-      topSection.innerHTML = `<h2>🔥 Top 10 Value & Chancen des Tages</h2>
-        <ul>
-          ${top10Combined
-            .map(
-              g =>
-                `<li>${g.home} vs ${g.away} → <b>${g.trend}</b> | Value: ${g.value.toFixed(
-                  2
-                )} | Wahrscheinlichkeit: ${g.probability}% | Liga: ${g.league}</li>`
-            )
-            .join("")}
-        </ul>`;
-      matchList.appendChild(topSection);
-    }
+    const topOver = [...games]
+      .sort((a, b) => b.prob.over25 - a.prob.over25)
+      .slice(0, 5);
+
+    const topOverSection = document.createElement("div");
+    topOverSection.className = "top-section mb-4";
+    topOverSection.innerHTML = `<h2>⚡ Top 5 Over 2,5 Wahrscheinlichkeit</h2>
+      <ul>${topOver
+        .map(
+          g =>
+            `<li>${g.home} vs ${g.away} → ${(g.prob.over25*100).toFixed(1)}% Wahrscheinlichkeit | Liga: ${g.league}</li>`
+        )
+        .join("")}</ul>`;
+    matchList.appendChild(topOverSection);
 
     // -----------------------------
-    // Matchkarten
+    // Top 5 BTTS
+    // -----------------------------
+    const topBTTS = [...games]
+      .sort((a, b) => b.prob.btts - a.prob.btts)
+      .slice(0, 5);
+
+    const topBTTSSection = document.createElement("div");
+    topBTTSSection.className = "top-section mb-4";
+    topBTTSSection.innerHTML = `<h2>⚡ Top 5 BTTS Wahrscheinlichkeit</h2>
+      <ul>${topBTTS
+        .map(
+          g =>
+            `<li>${g.home} vs ${g.away} → ${(g.prob.btts*100).toFixed(1)}% Wahrscheinlichkeit | Liga: ${g.league}</li>`
+        )
+        .join("")}</ul>`;
+    matchList.appendChild(topBTTSSection);
+
+    // -----------------------------
+    // Spiele-Karten
     // -----------------------------
     games.forEach(g => {
       const card = document.createElement("div");
       card.className = "match-card mb-4";
 
-      const homeVal = g.prob.home * 100;
-      const drawVal = g.prob.draw * 100;
-      const awayVal = g.prob.away * 100;
-      const overVal = g.prob.over25 * 100;
-      const bttsVal = g.prob.btts * 100;
+      const homeVal = g.prob.home*100;
+      const drawVal = g.prob.draw*100;
+      const awayVal = g.prob.away*100;
+      const overVal = g.prob.over25*100;
+      const bttsVal = g.prob.btts*100;
 
-      const trend =
-        homeVal > awayVal && homeVal > drawVal
-          ? "Heimsieg"
-          : awayVal > homeVal && awayVal > drawVal
-          ? "Auswärtssieg"
-          : "Unentschieden";
+      const trend = homeVal > awayVal && homeVal > drawVal
+        ? "Heimsieg"
+        : awayVal > homeVal && awayVal > drawVal
+        ? "Auswärtssieg"
+        : "Unentschieden";
 
       const trendOver = overVal > 50 ? "Over 2.5" : "Under 2.5";
       const trendBTTS = bttsVal > 50 ? "BTTS: Ja" : "BTTS: Nein";
