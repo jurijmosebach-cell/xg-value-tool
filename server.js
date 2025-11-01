@@ -18,7 +18,7 @@ if (!ODDS_API_KEY) console.error("FEHLER: ODDS_API_KEY fehlt!");
 const PORT = process.env.PORT || 10000;
 
 // -----------------------------
-// LEAGUES
+// LEAGUES (mit Basis-xG pro Team, falls du später feinjustieren willst)
 // -----------------------------
 const LEAGUES = [
   { key: "soccer_epl", name: "Premier League", baseXG: [1.55, 1.25] },
@@ -40,22 +40,63 @@ function cacheKey(date, leagues) {
 }
 
 // -----------------------------
-// Hilfsfunktionen
+// Math-Hilfen (Fakultäten vorcomputieren, Poisson-PMF, Score-Matrix)
 // -----------------------------
-function factorial(n) {
-  return n <= 1 ? 1 : n * factorial(n - 1);
+const MAX_GOALS = 6; // Summiere Score-Matrix bis 6: reicht für Over/BTTS & Win/Draw/Los
+const factorials = [1];
+for (let i = 1; i <= 20; i++) factorials[i] = factorials[i - 1] * i;
+
+function poissonPMF(k, lambda) {
+  // P(K=k) = e^{-λ} λ^k / k!
+  return Math.exp(-lambda) * Math.pow(lambda, k) / factorials[k];
 }
 
-// Wahrscheinlichkeit, dass ≤k Tore fallen
-function poissonProb(k, λ1, λ2) {
-  const e = Math.exp(-(λ1 + λ2));
+// Erstelle Score-Matrix P(i,j) für i,j = 0..MAX_GOALS (rest mass bleibt in tails, ok für unsere Zwecke)
+function scoreMatrix(lambdaHome, lambdaAway) {
+  const mat = [];
   let sum = 0;
-  for (let i = 0; i <= k; i++) {
-    for (let j = 0; j <= k - i; j++) {
-      sum += (Math.pow(λ1, i) * Math.pow(λ2, j)) / (factorial(i) * factorial(j));
+  for (let i = 0; i <= MAX_GOALS; i++) {
+    mat[i] = [];
+    for (let j = 0; j <= MAX_GOALS; j++) {
+      const p = poissonPMF(i, lambdaHome) * poissonPMF(j, lambdaAway);
+      mat[i][j] = p;
+      sum += p;
     }
   }
-  return e * sum;
+  // Restmass = 1 - sum; (vernachlässigbar bei MAX_GOALS>=6)
+  return { mat, coveredProb: sum };
+}
+
+// cumulative probability total <= k (direkt aus Matrix)
+function probTotalLeK(mat, k) {
+  let s = 0;
+  for (let i = 0; i <= MAX_GOALS; i++) {
+    for (let j = 0; j <= MAX_GOALS; j++) {
+      if (i + j <= k) s += mat[i][j];
+    }
+  }
+  return s;
+}
+
+// Home / Draw / Away von Matrix
+function probsFromMatrix(mat) {
+  let ph = 0, pd = 0, pa = 0;
+  for (let i = 0; i <= MAX_GOALS; i++) {
+    for (let j = 0; j <= MAX_GOALS; j++) {
+      if (i > j) ph += mat[i][j];
+      else if (i === j) pd += mat[i][j];
+      else pa += mat[i][j];
+    }
+  }
+  return { home: ph, draw: pd, away: pa };
+}
+
+// BTTS exact via closed form (unabhängige Poisson): 1 - P(home=0) - P(away=0) + P(both 0)
+function calcBTTS(lambdaHome, lambdaAway) {
+  const p0h = Math.exp(-lambdaHome);
+  const p0a = Math.exp(-lambdaAway);
+  const p00 = Math.exp(-(lambdaHome + lambdaAway));
+  return 1 - p0h - p0a + p00;
 }
 
 // -----------------------------
@@ -71,10 +112,11 @@ app.get("/api/games", async (req, res) => {
   const cacheId = cacheKey(date, leaguesParam);
   if (CACHE[cacheId]) {
     console.log("Cache-Treffer:", cacheId);
-    return res.json({ response: CACHE[cacheId] });
+    return res.json(CACHE[cacheId]);
   }
 
   const games = [];
+
   for (const league of LEAGUES.filter(l => leaguesParam.includes(l.key))) {
     try {
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso`;
@@ -105,55 +147,176 @@ app.get("/api/games", async (req, res) => {
         };
         if (!odds.home || !odds.away) continue;
 
-        // Realistischere xG-Berechnung basierend auf Quoten
+        // ---------------------
+        // xG Schätzung (Basis + Markt-Anpassung)
+        // ---------------------
         const baseHome = league.baseXG[0];
         const baseAway = league.baseXG[1];
+
+        // Markt-Implied (vereinfachte Umrechnung)
         const impliedHome = 1 / odds.home;
         const impliedAway = 1 / odds.away;
         const ratio = impliedHome / (impliedHome + impliedAway);
-        const homeXG = baseHome + (ratio - 0.5) * 0.8;
-        const awayXG = baseAway - (ratio - 0.5) * 0.8;
 
-        // Wahrscheinlichkeiten (Poisson-basiert)
-        const probOver25 = 1 - poissonProb(2, homeXG, awayXG);
-        const probUnder25 = 1 - probOver25;
-        const probBTTS = 1 - (Math.exp(-homeXG) + Math.exp(-awayXG) - Math.exp(-(homeXG + awayXG)));
+        // Skaliere xG leicht je nach Markt (feinjustierbar)
+        const homeXG = Math.max(0.1, baseHome + (ratio - 0.5) * 0.9);
+        const awayXG = Math.max(0.05, baseAway - (ratio - 0.5) * 0.9);
 
-        const totalXG = homeXG + awayXG;
-        const probHome = homeXG / totalXG;
-        const probAway = awayXG / totalXG;
-        const probDraw = 1 - (probHome + probAway);
+        // ---------------------
+        // Score-Matrix & Wahrscheinlichkeiten (Poisson)
+        // ---------------------
+        const { mat, coveredProb } = scoreMatrix(homeXG, awayXG); // mat[i][j]
+        const scoreProbs = probsFromMatrix(mat);
+        // Because MAX_GOALS caps tails, we attempt a small tail correction: ensure sum <=1
+        // We'll normalize by coveredProb to get relative probs, then scale by coveredProb (acceptable)
+        // But for most realistic lambdas and MAX_GOALS=6 coveredProb ~ 0.98+, acceptable for ranking.
+        const homeProb = scoreProbs.home;
+        const drawProb = scoreProbs.draw;
+        const awayProb = scoreProbs.away;
 
-        const prob = { home: probHome, draw: probDraw, away: probAway, over25: probOver25, under25: probUnder25, btts: probBTTS };
+        // Over 2.5: 1 - P(total <= 2)
+        const probTotalLe2 = probTotalLeK(mat, 2);
+        const over25Prob = 1 - probTotalLe2;
+
+        // BTTS (exact closed form)
+        const bttsProb = calcBTTS(homeXG, awayXG);
+
+        // Slight renormalization: ensure probabilities sum ~1 for 1X2
+        const sum1x2 = homeProb + drawProb + awayProb;
+        const normHome = homeProb / sum1x2;
+        const normDraw = drawProb / sum1x2;
+        const normAway = awayProb / sum1x2;
+
+        const prob = {
+          home: normHome,
+          draw: normDraw,
+          away: normAway,
+          over25: over25Prob,
+          under25: 1 - over25Prob,
+          btts: bttsProb,
+        };
+
+        // ---------------------
+        // Value-Berechnung: value = prob * odds - 1 (positive = edge)
+        // ---------------------
         const value = {
           home: odds.home ? prob.home * odds.home - 1 : 0,
           draw: odds.draw ? prob.draw * odds.draw - 1 : 0,
           away: odds.away ? prob.away * odds.away - 1 : 0,
           over25: odds.over25 ? prob.over25 * odds.over25 - 1 : 0,
           under25: odds.under25 ? prob.under25 * odds.under25 - 1 : 0,
+          btts: 0, // Bookmakers often don't give direct BTTS odds in totals; we leave for now or compute if available
         };
 
-        games.push({
+        // Wenn BTTS Odds vorhanden among markets, try to get them (rare in 'totals' market),
+        // but many books have a 'bothteams_to_score' market — try find it
+        const bttsMarket = book.markets?.find(m => m.key === "bothteams_to_score");
+        if (bttsMarket) {
+          const outcomeYes = bttsMarket.outcomes.find(o => /yes/i.test(o.name));
+          if (outcomeYes && outcomeYes.price) value.btts = prob.btts * outcomeYes.price - 1;
+        }
+
+        // Bestes Value-Market bestimmen
+        const valueEntries = [
+          { key: "home", val: value.home },
+          { key: "draw", val: value.draw },
+          { key: "away", val: value.away },
+          { key: "over25", val: value.over25 },
+          { key: "under25", val: value.under25 },
+          { key: "btts", val: value.btts },
+        ];
+        valueEntries.sort((a, b) => b.val - a.val);
+        const bestValue = valueEntries[0];
+
+        const isValue = bestValue.val > 0;
+
+        const gameObj = {
           home,
           away,
           league: league.name,
-          homeLogo: `https://placehold.co/48x36?text=${home[0]}`,
-          awayLogo: `https://placehold.co/48x36?text=${away[0]}`,
+          commence_time: g.commence_time,
+          homeLogo: `https://placehold.co/48x36?text=${encodeURIComponent(home[0] || "H")}`,
+          awayLogo: `https://placehold.co/48x36?text=${encodeURIComponent(away[0] || "A")}`,
           odds,
           prob,
           value,
+          bestValueMarket: bestValue.key,
+          bestValueAmount: +bestValue.val.toFixed(4),
+          isValue,
           homeXG: +homeXG.toFixed(2),
           awayXG: +awayXG.toFixed(2),
-          totalXG: +totalXG.toFixed(2),
-        });
+          totalXG: +(homeXG + awayXG).toFixed(2),
+          coveredProb: +coveredProb.toFixed(4),
+        };
+
+        games.push(gameObj);
       }
     } catch (err) {
       console.error(`Fehler ${league.name}:`, err.message);
     }
   }
 
-  CACHE[cacheId] = games; // Cache speichern
-  res.json({ response: games });
+  // -----------------------------
+  // Top-Listen: nach Wahrscheinlichkeit & nach Value
+  // -----------------------------
+  function topNByProb(arr, keyPath, n = 5) {
+    // keyPath: e.g. "prob.home" or "prob.over25"
+    const [root, sub] = keyPath.split(".");
+    return [...arr]
+      .filter(g => g[root] && typeof g[root][sub] === "number")
+      .sort((a, b) => b[root][sub] - a[root][sub])
+      .slice(0, n)
+      .map(g => ({
+        home: g.home,
+        away: g.away,
+        league: g.league,
+        commence_time: g.commence_time,
+        prob: +(g[root][sub] * 100).toFixed(2),
+        odds: g.odds,
+        bestValueMarket: g.bestValueMarket,
+        bestValueAmount: g.bestValueAmount,
+        isValue: g.isValue,
+      }));
+  }
+
+  function topNByValue(arr, marketKey, n = 5) {
+    return [...arr]
+      .filter(g => typeof g.value[marketKey] === "number")
+      .sort((a, b) => b.value[marketKey] - a.value[marketKey])
+      .slice(0, n)
+      .map(g => ({
+        home: g.home,
+        away: g.away,
+        league: g.league,
+        commence_time: g.commence_time,
+        value: +g.value[marketKey].toFixed(4),
+        prob: +(g.prob[marketKey !== "btts" ? marketKey : "btts"] * 100).toFixed(2),
+        odds: g.odds,
+        bestValueMarket: g.bestValueMarket,
+        bestValueAmount: g.bestValueAmount,
+        isValue: g.isValue,
+      }));
+  }
+
+  const result = {
+    response: games,
+    topByProb: {
+      home: topNByProb(games, "prob.home"),
+      draw: topNByProb(games, "prob.draw"),
+      over25: topNByProb(games, "prob.over25"),
+      btts: topNByProb(games, "prob.btts"),
+    },
+    topByValue: {
+      home: topNByValue(games, "home"),
+      draw: topNByValue(games, "draw"),
+      over25: topNByValue(games, "over25"),
+      btts: topNByValue(games, "btts"),
+    },
+  };
+
+  // Cache response object (so top lists included)
+  CACHE[cacheId] = result;
+  res.json(result);
 });
 
 // -----------------------------
