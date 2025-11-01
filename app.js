@@ -28,8 +28,33 @@ async function loadMatches() {
       return;
     }
 
-    statusDiv.textContent = `${games.length} Spiele geladen!`;
+    // Berechne Top-7 nach "Trefferwahrscheinlichkeit"
+    const top7 = [...games]
+      .map(g => {
+        const best =
+          g.prob.home > g.prob.away && g.prob.home > g.prob.draw
+            ? { type: "1", val: g.prob.home }
+            : g.prob.away > g.prob.home && g.prob.away > g.prob.draw
+            ? { type: "2", val: g.prob.away }
+            : { type: "X", val: g.prob.draw };
+        return { ...g, best };
+      })
+      .sort((a, b) => b.best.val - a.best.val)
+      .slice(0, 7);
 
+    // Top7 Sektion
+    const topSection = document.createElement("div");
+    topSection.className = "top-section";
+    topSection.innerHTML = `<h2>🏅 Top 7 Siegwahrscheinlichkeiten</h2>
+      <ul>${top7
+        .map(
+          g =>
+            `<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> mit ${(g.best.val * 100).toFixed(1)}%</li>`
+        )
+        .join("")}</ul>`;
+    matchList.appendChild(topSection);
+
+    // Spiele-Karten
     games.forEach(g => {
       const card = document.createElement("div");
       card.className = "match-card";
@@ -49,6 +74,18 @@ async function loadMatches() {
       const trendOver = overVal > 50 ? "Over 2.5" : "Under 2.5";
       const trendBTTS = bttsVal > 50 ? "BTTS: JA" : "BTTS: NEIN";
 
+      const bestChance = Math.max(homeVal, drawVal, awayVal, overVal, bttsVal);
+      const bestMarket =
+        bestChance === homeVal
+          ? "1"
+          : bestChance === drawVal
+          ? "X"
+          : bestChance === awayVal
+          ? "2"
+          : bestChance === overVal
+          ? "Over 2.5"
+          : "BTTS Ja";
+
       card.innerHTML = `
         <div class="match-header mb-3">
           <div class="team">
@@ -59,7 +96,7 @@ async function loadMatches() {
             </div>
           </div>
 
-          <span class="text-xs bg-cyan-900 text-cyan-300 px-3 py-1 rounded-full">${g.league}</span>
+          <span class="text-xs bg-blue-200 text-blue-800 px-3 py-1 rounded-full">${g.league}</span>
 
           <div class="team text-right">
             <div>
@@ -70,7 +107,7 @@ async function loadMatches() {
           </div>
         </div>
 
-        <div class="text-amber-300 text-sm mb-2">
+        <div class="text-amber-700 text-sm mb-2">
           1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
         </div>
 
@@ -94,10 +131,16 @@ async function loadMatches() {
           <span class="trend-${trendOver.includes("Over") ? "over" : "under"}">${trendOver}</span>
           <span class="trend-${trendBTTS.includes("JA") ? "btts-yes" : "btts-no"}">${trendBTTS}</span>
         </div>
+
+        <div class="text-center mt-3 font-semibold text-blue-600">
+          👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
+        </div>
       `;
 
       matchList.appendChild(card);
     });
+
+    statusDiv.textContent = `${games.length} Spiele geladen!`;
   } catch (err) {
     statusDiv.textContent = "Fehler: " + err.message;
     console.error(err);
