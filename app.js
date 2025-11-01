@@ -21,16 +21,17 @@ async function loadMatches() {
 
   try {
     const res = await fetch(`/api/games?date=${date}&leagues=${leagues.join(",")}`);
-    const { response: games, topByProb, topByValue } = await res.json();
+    const data = await res.json();
+    const games = data.response;
 
     if (!games || games.length === 0) {
       statusDiv.textContent = "Keine Spiele gefunden.";
       return;
     }
 
-    // -----------------------------
-    // Top 7 nach Trefferwahrscheinlichkeit
-    // -----------------------------
+    // -----------------------
+    // Top 7 nach Wahrscheinlichkeit
+    // -----------------------
     const top7 = [...games]
       .map(g => {
         const best =
@@ -45,8 +46,8 @@ async function loadMatches() {
       .slice(0, 7);
 
     const topSection = document.createElement("div");
-    topSection.className = "top-section mb-6";
-    topSection.innerHTML = `<h2 class="text-xl font-bold mb-2">🏅 Top 7 Siegwahrscheinlichkeiten</h2>
+    topSection.className = "top-section";
+    topSection.innerHTML = `<h2>🏅 Top 7 Siegwahrscheinlichkeiten</h2>
       <ul>${top7
         .map(
           g =>
@@ -55,39 +56,38 @@ async function loadMatches() {
         .join("")}</ul>`;
     matchList.appendChild(topSection);
 
-    // -----------------------------
-    // Top 5 Value-Listen
-    // -----------------------------
-    const createTopValueSection = (title, arr) => {
-      const section = document.createElement("div");
-      section.className = "top-value-section mb-6";
-      section.innerHTML = `<h2 class="text-lg font-semibold mb-1">${title}</h2>
+    // -----------------------
+    // Top 5 Value / Over / BTTS
+    // -----------------------
+    const createTopList = (title, arr) => {
+      const div = document.createElement("div");
+      div.className = "top-section";
+      div.innerHTML = `<h2>${title}</h2>
         <ul>${arr
           .map(
             g =>
-              `<li>${g.home} vs ${g.away} → Markt: <b>${g.bestValueMarket}</b>, Value: ${g.bestValueAmount.toFixed(
-                2
-              )}, Trefferwahrscheinlichkeit: ${g.prob.toFixed(1)}%</li>`
+              `<li>${g.home} vs ${g.away} → ${g.bestValueMarket.toUpperCase()} (${g.prob.toFixed(1)}%, Value: ${g.value.toFixed(2)})</li>`
           )
           .join("")}</ul>`;
-      return section;
+      return div;
     };
 
-    matchList.appendChild(createTopValueSection("💰 Top 5 Value 1X2", [
-      ...topByValue.home,
-      ...topByValue.draw,
-      ...topByValue.away,
+    matchList.appendChild(createTopList("🔥 Top 5 Value", [
+      ...data.topByValue.home,
+      ...data.topByValue.draw,
+      ...data.topByValue.over25,
+      ...data.topByValue.btts
     ].sort((a,b)=>b.value-a.value).slice(0,5)));
 
-    matchList.appendChild(createTopValueSection("💰 Top 5 Value Over 2.5", topByValue.over25));
-    matchList.appendChild(createTopValueSection("💰 Top 5 Value BTTS", topByValue.btts));
+    matchList.appendChild(createTopList("⚡ Top 5 Over 2,5", data.topByProb.over25));
+    matchList.appendChild(createTopList("💥 Top 5 BTTS", data.topByProb.btts));
 
-    // -----------------------------
+    // -----------------------
     // Spiele-Karten
-    // -----------------------------
+    // -----------------------
     games.forEach(g => {
       const card = document.createElement("div");
-      card.className = "match-card p-4 mb-4 bg-white rounded shadow";
+      card.className = "match-card";
 
       const homeVal = g.prob.home * 100;
       const drawVal = g.prob.draw * 100;
@@ -95,7 +95,7 @@ async function loadMatches() {
       const overVal = g.prob.over25 * 100;
       const bttsVal = g.prob.btts * 100;
 
-      let trend =
+      const trend =
         homeVal > awayVal && homeVal > drawVal
           ? "Heimsieg"
           : awayVal > homeVal && awayVal > drawVal
@@ -117,55 +117,53 @@ async function loadMatches() {
           : "BTTS Ja";
 
       card.innerHTML = `
-        <div class="match-header flex justify-between items-center mb-3">
-          <div class="team flex items-center gap-2">
-            <img src="${g.homeLogo}" alt="${g.home}" class="w-10 h-8"/>
+        <div class="match-header mb-3">
+          <div class="team">
+            <img src="${g.homeLogo}" alt="${g.home}" />
             <div>
-              <div class="font-semibold">${g.home}</div>
-              <div class="text-sm text-gray-500">${g.homeXG} xG</div>
+              <div class="team-name">${g.home}</div>
+              <div class="team-xg">${g.homeXG} xG</div>
             </div>
           </div>
 
-          <span class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">${g.league}</span>
+          <span class="text-xs bg-blue-200 text-blue-800 px-3 py-1 rounded-full">${g.league}</span>
 
-          <div class="team flex items-center gap-2">
-            <div class="text-right">
-              <div class="font-semibold">${g.away}</div>
-              <div class="text-sm text-gray-500">${g.awayXG} xG</div>
+          <div class="team text-right">
+            <div>
+              <div class="team-name">${g.away}</div>
+              <div class="team-xg">${g.awayXG} xG</div>
             </div>
-            <img src="${g.awayLogo}" alt="${g.away}" class="w-10 h-8"/>
+            <img src="${g.awayLogo}" alt="${g.away}" />
           </div>
         </div>
 
-        <div class="mb-2 text-sm text-amber-700">
+        <div class="text-amber-700 text-sm mb-2">
           1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
         </div>
 
-        <div class="bar-container mb-2 flex gap-1">
-          <div class="bar-fill bg-green-400 flex-1" style="height:10px; width:${homeVal}%"></div>
-          <div class="bar-fill bg-yellow-300 flex-1" style="height:10px; width:${drawVal}%"></div>
-          <div class="bar-fill bg-red-400 flex-1" style="height:10px; width:${awayVal}%"></div>
-        </div>
-        <div class="bar-text text-xs mb-2">1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%</div>
-
         <div class="bar-container mb-2">
-          <div class="bar-fill bg-blue-400" style="width:${overVal}%"></div>
-          <div class="bar-text text-xs">Over:${overVal.toFixed(1)}% | Under:${(100-overVal).toFixed(1)}%</div>
+          <div class="bar-fill bar-home" style="width:${homeVal}%"></div>
+          <div class="bar-text">1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%</div>
         </div>
 
         <div class="bar-container mb-2">
-          <div class="bar-fill bg-purple-400" style="width:${bttsVal}%"></div>
-          <div class="bar-text text-xs">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100-bttsVal).toFixed(1)}%</div>
+          <div class="bar-fill bar-over" style="width:${overVal}%"></div>
+          <div class="bar-text">Over:${overVal.toFixed(1)}% | Under:${(100 - overVal).toFixed(1)}%</div>
         </div>
 
-        <div class="trend flex gap-2 mt-2">
-          <span class="px-2 py-1 rounded bg-green-200">${trend}</span>
-          <span class="px-2 py-1 rounded bg-blue-200">${trendOver}</span>
-          <span class="px-2 py-1 rounded bg-purple-200">${trendBTTS}</span>
+        <div class="bar-container">
+          <div class="bar-fill bar-btts-yes" style="width:${bttsVal}%"></div>
+          <div class="bar-text">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100 - bttsVal).toFixed(1)}%</div>
         </div>
 
-        <div class="text-center mt-2 font-semibold text-blue-600">
-          Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
+        <div class="trend mt-2">
+          <span class="trend-${trend === "Heimsieg" ? "home" : trend === "Auswärtssieg" ? "away" : "draw"}">${trend}</span>
+          <span class="trend-${trendOver.includes("Over") ? "over" : "under"}">${trendOver}</span>
+          <span class="trend-${trendBTTS.includes("JA") ? "btts-yes" : "btts-no"}">${trendBTTS}</span>
+        </div>
+
+        <div class="text-center mt-3 font-semibold text-blue-600">
+          👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
         </div>
       `;
 
