@@ -18,7 +18,7 @@ if (!ODDS_API_KEY) console.error("FEHLER: ODDS_API_KEY fehlt!");
 const PORT = process.env.PORT || 10000;
 
 // -----------------------------
-// Ligen
+// Ligen mit Basis-xG
 // -----------------------------
 const LEAGUES = [
   { key: "soccer_epl", name: "Premier League", baseXG: [1.55, 1.25] },
@@ -29,6 +29,11 @@ const LEAGUES = [
   { key: "soccer_france_ligue_one", name: "Ligue 1", baseXG: [1.55, 1.35] },
   { key: "soccer_netherlands_eredivisie", name: "Eredivisie", baseXG: [1.70, 1.45] },
   { key: "soccer_sweden_allsvenskan", name: "Allsvenskan", baseXG: [1.55, 1.45] },
+  { key: "soccer_turkey_super_league", name: "Turkey Super League", baseXG: [1.55, 1.35] },
+  { key: "soccer_uefa_europa_conference_league", name: "UEFA Europa Conference League", baseXG: [1.40, 1.20] },
+  { key: "soccer_uefa_champs_league", name: "UEFA Champions League", baseXG: [1.50, 1.30] },
+  { key: "soccer_uefa_champs_league_qualification", name: "Champions League Qualification", baseXG: [1.45, 1.25] },
+  { key: "soccer_usa_mls", name: "Major League Soccer (MLS)", baseXG: [1.55, 1.40] },
 ];
 
 // -----------------------------
@@ -40,25 +45,61 @@ function cacheKey(date, leagues) {
 }
 
 // -----------------------------
-// Hilfsfunktionen
+// Poisson & xG Hilfen
 // -----------------------------
-function factorial(n) {
-  return n <= 1 ? 1 : n * factorial(n - 1);
+const MAX_GOALS = 6;
+const factorials = [1];
+for (let i = 1; i <= 20; i++) factorials[i] = factorials[i - 1] * i;
+
+function poissonPMF(k, lambda) {
+  return Math.exp(-lambda) * Math.pow(lambda, k) / factorials[k];
 }
 
-function poissonProb(k, λ1, λ2) {
-  const e = Math.exp(-(λ1 + λ2));
+function scoreMatrix(lambdaHome, lambdaAway) {
+  const mat = [];
   let sum = 0;
-  for (let i = 0; i <= k; i++) {
-    for (let j = 0; j <= k - i; j++) {
-      sum += (Math.pow(λ1, i) * Math.pow(λ2, j)) / (factorial(i) * factorial(j));
+  for (let i = 0; i <= MAX_GOALS; i++) {
+    mat[i] = [];
+    for (let j = 0; j <= MAX_GOALS; j++) {
+      const p = poissonPMF(i, lambdaHome) * poissonPMF(j, lambdaAway);
+      mat[i][j] = p;
+      sum += p;
     }
   }
-  return e * sum;
+  return { mat, coveredProb: sum };
+}
+
+function probTotalLeK(mat, k) {
+  let s = 0;
+  for (let i = 0; i <= MAX_GOALS; i++) {
+    for (let j = 0; j <= MAX_GOALS; j++) {
+      if (i + j <= k) s += mat[i][j];
+    }
+  }
+  return s;
+}
+
+function probsFromMatrix(mat) {
+  let ph = 0, pd = 0, pa = 0;
+  for (let i = 0; i <= MAX_GOALS; i++) {
+    for (let j = 0; j <= MAX_GOALS; j++) {
+      if (i > j) ph += mat[i][j];
+      else if (i === j) pd += mat[i][j];
+      else pa += mat[i][j];
+    }
+  }
+  return { home: ph, draw: pd, away: pa };
+}
+
+function calcBTTS(lambdaHome, lambdaAway) {
+  const p0h = Math.exp(-lambdaHome);
+  const p0a = Math.exp(-lambdaAway);
+  const p00 = Math.exp(-(lambdaHome + lambdaAway));
+  return 1 - p0h - p0a + p00;
 }
 
 // -----------------------------
-// API /api/games
+// API: /api/games
 // -----------------------------
 app.get("/api/games", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
@@ -68,10 +109,7 @@ app.get("/api/games", async (req, res) => {
     : LEAGUES.map(l => l.key);
 
   const cacheId = cacheKey(date, leaguesParam);
-  if (CACHE[cacheId]) {
-    console.log("Cache-Treffer:", cacheId);
-    return res.json(CACHE[cacheId]);
-  }
+  if (CACHE[cacheId]) return res.json(CACHE[cacheId]);
 
   const games = [];
 
@@ -80,12 +118,12 @@ app.get("/api/games", async (req, res) => {
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso`;
       const response = await fetch(url);
       if (!response.ok) continue;
+
       const data = await response.json();
       if (!Array.isArray(data)) continue;
 
       for (const g of data) {
         if (!g.commence_time?.startsWith(date)) continue;
-
         const home = g.home_team;
         const away = g.away_team;
         const book = g.bookmakers?.[0];
@@ -99,43 +137,77 @@ app.get("/api/games", async (req, res) => {
           draw: h2h.find(o => o.name === "Draw")?.price || 0,
           away: h2h.find(o => o.name === away)?.price || 0,
           over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
+          under25: totals.find(o => o.name === "Under" && o.point === 2.5)?.price || 0,
         };
         if (!odds.home || !odds.away) continue;
 
-        // xG Berechnung
         const baseHome = league.baseXG[0];
         const baseAway = league.baseXG[1];
+
         const impliedHome = 1 / odds.home;
         const impliedAway = 1 / odds.away;
         const ratio = impliedHome / (impliedHome + impliedAway);
-        const homeXG = Math.max(0.1, baseHome + (ratio - 0.5) * 0.8);
-        const awayXG = Math.max(0.05, baseAway - (ratio - 0.5) * 0.8);
 
-        // Wahrscheinlichkeiten
-        const probOver25 = 1 - poissonProb(2, homeXG, awayXG);
-        const probHome = homeXG / (homeXG + awayXG);
-        const probAway = awayXG / (homeXG + awayXG);
-        const probDraw = 1 - (probHome + probAway);
+        const homeXG = Math.max(0.1, baseHome + (ratio - 0.5) * 0.9);
+        const awayXG = Math.max(0.05, baseAway - (ratio - 0.5) * 0.9);
 
-        const prob = { home: probHome, draw: probDraw, away: probAway, over25: probOver25 };
+        const { mat } = scoreMatrix(homeXG, awayXG);
+        const scoreProbs = probsFromMatrix(mat);
+        const homeProb = scoreProbs.home;
+        const drawProb = scoreProbs.draw;
+        const awayProb = scoreProbs.away;
+        const over25Prob = 1 - probTotalLeK(mat, 2);
+        const bttsProb = calcBTTS(homeXG, awayXG);
 
-        // Value-Berechnung
+        const sum1x2 = homeProb + drawProb + awayProb;
+        const prob = {
+          home: homeProb / sum1x2,
+          draw: drawProb / sum1x2,
+          away: awayProb / sum1x2,
+          over25: over25Prob,
+          under25: 1 - over25Prob,
+          btts: bttsProb,
+        };
+
         const value = {
           home: prob.home * odds.home - 1,
           draw: prob.draw * odds.draw - 1,
           away: prob.away * odds.away - 1,
           over25: prob.over25 * odds.over25 - 1,
+          under25: prob.under25 * odds.under25 - 1,
+          btts: 0,
         };
+
+        const bttsMarket = book.markets?.find(m => m.key === "bothteams_to_score");
+        if (bttsMarket) {
+          const outcomeYes = bttsMarket.outcomes.find(o => /yes/i.test(o.name));
+          if (outcomeYes && outcomeYes.price) value.btts = prob.btts * outcomeYes.price - 1;
+        }
+
+        const valueEntries = [
+          { key: "home", val: value.home },
+          { key: "draw", val: value.draw },
+          { key: "away", val: value.away },
+          { key: "over25", val: value.over25 },
+          { key: "under25", val: value.under25 },
+          { key: "btts", val: value.btts },
+        ].sort((a, b) => b.val - a.val);
+        const bestValue = valueEntries[0];
+        const isValue = bestValue.val > 0;
 
         games.push({
           home,
           away,
           league: league.name,
-          homeLogo: `https://placehold.co/48x36?text=${home[0]}`,
-          awayLogo: `https://placehold.co/48x36?text=${away[0]}`,
+          commence_time: g.commence_time,
+          homeLogo: `https://placehold.co/48x36?text=${encodeURIComponent(home[0]||"H")}`,
+          awayLogo: `https://placehold.co/48x36?text=${encodeURIComponent(away[0]||"A")}`,
           odds,
           prob,
           value,
+          bestValueMarket: bestValue.key,
+          bestValueAmount: +bestValue.val.toFixed(4),
+          isValue,
           homeXG: +homeXG.toFixed(2),
           awayXG: +awayXG.toFixed(2),
           totalXG: +(homeXG + awayXG).toFixed(2),
@@ -146,8 +218,42 @@ app.get("/api/games", async (req, res) => {
     }
   }
 
-  CACHE[cacheId] = { response: games };
-  res.json({ response: games });
+  // -----------------------------
+  // Top-Listen
+  // -----------------------------
+  function topNByProb(arr, keyPath, n = 5) {
+    const [root, sub] = keyPath.split(".");
+    return [...arr]
+      .filter(g => g[root] && typeof g[root][sub] === "number")
+      .sort((a, b) => b[root][sub] - a[root][sub])
+      .slice(0, n);
+  }
+
+  function topNByValue(arr, marketKey, n = 5) {
+    return [...arr]
+      .filter(g => typeof g.value[marketKey] === "number")
+      .sort((a, b) => b.value[marketKey] - a.value[marketKey])
+      .slice(0, n);
+  }
+
+  const result = {
+    response: games,
+    topByProb: {
+      home: topNByProb(games, "prob.home"),
+      draw: topNByProb(games, "prob.draw"),
+      over25: topNByProb(games, "prob.over25"),
+      btts: topNByProb(games, "prob.btts"),
+    },
+    topByValue: {
+      home: topNByValue(games, "home"),
+      draw: topNByValue(games, "draw"),
+      over25: topNByValue(games, "over25"),
+      btts: topNByValue(games, "btts"),
+    },
+  };
+
+  CACHE[cacheId] = result;
+  res.json(result);
 });
 
 // -----------------------------
