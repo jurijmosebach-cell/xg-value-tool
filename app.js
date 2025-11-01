@@ -7,6 +7,7 @@ const leagueSelect = document.getElementById("league-select");
 const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
 
+// Lade Spiele
 refreshBtn.addEventListener("click", loadMatches);
 
 async function loadMatches() {
@@ -21,14 +22,14 @@ async function loadMatches() {
 
   try {
     const res = await fetch(`/api/games?date=${date}&leagues=${leagues.join(",")}`);
-    const { response: games } = await res.json();
+    const { response: games, topByProb, topByValue } = await res.json();
 
     if (!games || games.length === 0) {
       statusDiv.textContent = "Keine Spiele gefunden.";
       return;
     }
 
-    // Top-7 nach Trefferwahrscheinlichkeit
+    // Top-7 Siegwahrscheinlichkeit
     const top7 = [...games]
       .map(g => {
         const best =
@@ -43,30 +44,20 @@ async function loadMatches() {
       .slice(0, 7);
 
     const topSection = document.createElement("div");
-    topSection.className = "top-section mb-4";
-    topSection.innerHTML = `<h2>🏅 Top 7 Siegwahrscheinlichkeiten</h2>
+    topSection.className = "top-section mb-6 p-3 bg-blue-50 rounded";
+    topSection.innerHTML = `<h2 class="text-xl font-bold mb-2">🏅 Top 7 Siegwahrscheinlichkeiten</h2>
       <ul>${top7
-        .map(g => `<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> mit ${(g.best.val*100).toFixed(1)}%</li>`)
+        .map(
+          g =>
+            `<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> mit ${(g.best.val * 100).toFixed(1)}%</li>`
+        )
         .join("")}</ul>`;
     matchList.appendChild(topSection);
 
-    // Top-5 nach Value
-    const top5ValueGames = [...games]
-      .map(g => {
-        const maxValue = Math.max(g.value.home, g.value.draw, g.value.away, g.value.over25, g.value.btts);
-        return { ...g, maxValue };
-      })
-      .sort((a, b) => b.maxValue - a.maxValue)
-      .slice(0, 5);
-
+    // Spielekarten
     games.forEach(g => {
       const card = document.createElement("div");
-      card.className = "match-card p-4 mb-4 rounded shadow";
-
-      if (top5ValueGames.includes(g)) {
-        card.style.borderLeft = "5px solid #e1b12c";
-        card.style.boxShadow = "0 4px 20px rgba(225,177,44,0.3)";
-      }
+      card.className = "match-card bg-white shadow-md p-3 rounded mb-4";
 
       const homeVal = g.prob.home * 100;
       const drawVal = g.prob.draw * 100;
@@ -75,76 +66,86 @@ async function loadMatches() {
       const bttsVal = g.prob.btts * 100;
 
       let trend =
-        homeVal > awayVal && homeVal > drawVal ? "Heimsieg" :
-        awayVal > homeVal && awayVal > drawVal ? "Auswärtssieg" : "Unentschieden";
+        homeVal > awayVal && homeVal > drawVal
+          ? "Heimsieg"
+          : awayVal > homeVal && awayVal > drawVal
+          ? "Auswärtssieg"
+          : "Unentschieden";
       const trendOver = overVal > 50 ? "Over 2.5" : "Under 2.5";
       const trendBTTS = bttsVal > 50 ? "BTTS: JA" : "BTTS: NEIN";
 
       const bestChance = Math.max(homeVal, drawVal, awayVal, overVal, bttsVal);
       const bestMarket =
-        bestChance === homeVal ? "1" :
-        bestChance === drawVal ? "X" :
-        bestChance === awayVal ? "2" :
-        bestChance === overVal ? "Over 2.5" : "BTTS Ja";
+        bestChance === homeVal
+          ? "1"
+          : bestChance === drawVal
+          ? "X"
+          : bestChance === awayVal
+          ? "2"
+          : bestChance === overVal
+          ? "Over 2.5"
+          : "BTTS Ja";
+
+      const valueTag = g.isValue ? "💎 Höchstes Value!" : "";
 
       card.innerHTML = `
         <div class="flex justify-between items-center mb-2">
           <div class="flex items-center gap-2">
-            <img src="${g.homeLogo}" alt="${g.home}" class="w-8 h-8 rounded-full"/>
-            <div>
-              <div class="font-bold">${g.home}</div>
-              <div class="text-xs text-gray-500">${g.homeXG} xG</div>
-            </div>
+            <img src="${g.homeLogo}" alt="${g.home}" class="w-10 h-8" />
+            <span class="font-semibold">${g.home}</span>
           </div>
-          <span class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">${g.league}</span>
-          <div class="flex items-center gap-2 text-right">
-            <div>
-              <div class="font-bold">${g.away}</div>
-              <div class="text-xs text-gray-500">${g.awayXG} xG</div>
-            </div>
-            <img src="${g.awayLogo}" alt="${g.away}" class="w-8 h-8 rounded-full"/>
+          <span class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">${g.league}</span>
+          <div class="flex items-center gap-2">
+            <span class="font-semibold">${g.away}</span>
+            <img src="${g.awayLogo}" alt="${g.away}" class="w-10 h-8" />
           </div>
         </div>
 
-        <div class="text-amber-700 text-sm mb-2">
+        <div class="text-sm mb-2">
           1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
         </div>
 
-        <div class="bar-container mb-2 relative h-5 bg-gray-300 rounded overflow-hidden">
-          <div class="absolute left-0 top-0 h-full bg-green-500" style="width:${homeVal}%"></div>
-          <div class="absolute left-0 top-0 h-full bg-yellow-400" style="width:${drawVal}%"></div>
-          <div class="absolute left-0 top-0 h-full bg-red-500" style="width:${awayVal}%"></div>
-          <span class="absolute inset-0 flex justify-center items-center text-xs font-bold text-white">
-            1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%
-          </span>
+        <div class="mb-2">
+          <div class="w-full bg-gray-200 h-4 rounded relative">
+            <div class="absolute left-0 top-0 h-4 bg-green-400" style="width:${homeVal}%"></div>
+            <div class="absolute left-0 top-0 h-4 w-full flex justify-between text-xs px-1">
+              <span>1:${homeVal.toFixed(1)}%</span>
+              <span>X:${drawVal.toFixed(1)}%</span>
+              <span>2:${awayVal.toFixed(1)}%</span>
+            </div>
+          </div>
         </div>
 
-        <div class="bar-container mb-2 relative h-5 bg-gray-300 rounded overflow-hidden">
-          <div class="absolute left-0 top-0 h-full bg-green-500" style="width:${overVal}%"></div>
-          <span class="absolute inset-0 flex justify-center items-center text-xs font-bold text-white">
-            Over:${overVal.toFixed(1)}% | Under:${(100-overVal).toFixed(1)}%
-          </span>
+        <div class="mb-2">
+          <div class="w-full bg-gray-200 h-4 rounded relative">
+            <div class="absolute left-0 top-0 h-4 bg-yellow-400" style="width:${overVal}%"></div>
+            <div class="absolute left-0 top-0 h-4 w-full flex justify-between text-xs px-1">
+              <span>Over:${overVal.toFixed(1)}%</span>
+              <span>Under:${(100-overVal).toFixed(1)}%</span>
+            </div>
+          </div>
         </div>
 
-        <div class="bar-container mb-2 relative h-5 bg-gray-300 rounded overflow-hidden">
-          <div class="absolute left-0 top-0 h-full bg-green-500" style="width:${bttsVal}%"></div>
-          <span class="absolute inset-0 flex justify-center items-center text-xs font-bold text-white">
-            BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100-bttsVal).toFixed(1)}%
-          </span>
+        <div class="mb-2">
+          <div class="w-full bg-gray-200 h-4 rounded relative">
+            <div class="absolute left-0 top-0 h-4 bg-pink-400" style="width:${bttsVal}%"></div>
+            <div class="absolute left-0 top-0 h-4 w-full flex justify-between text-xs px-1">
+              <span>BTTS Ja:${bttsVal.toFixed(1)}%</span>
+              <span>Nein:${(100-bttsVal).toFixed(1)}%</span>
+            </div>
+          </div>
         </div>
 
-        <div class="flex gap-2 mb-1 text-sm">
-          <span class="font-semibold">Trend:</span>
-          <span>${trend}</span>
-          <span>${trendOver}</span>
-          <span>${trendBTTS}</span>
+        <div class="flex gap-2 mt-2">
+          <span class="px-2 py-1 bg-green-100 rounded">${trend}</span>
+          <span class="px-2 py-1 bg-yellow-100 rounded">${trendOver}</span>
+          <span class="px-2 py-1 bg-pink-100 rounded">${trendBTTS}</span>
         </div>
 
-        <div class="text-center font-semibold text-blue-600">
-          ${top5ValueGames.includes(g) ? "🏆 " : ""}Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
+        <div class="text-center mt-2 font-semibold text-blue-600">
+          👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance) ${valueTag}
         </div>
       `;
-
       matchList.appendChild(card);
     });
 
