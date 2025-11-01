@@ -16,131 +16,122 @@ async function loadMatches() {
   if (!date) return (statusDiv.textContent = "Bitte Datum wählen!");
   if (leagues.length === 0) return (statusDiv.textContent = "Bitte mindestens eine Liga wählen!");
 
-  statusDiv.textContent = "Lade Spiele...";
+  statusDiv.textContent = "⏳ Lade Spiele...";
   matchList.innerHTML = "";
 
   try {
     const res = await fetch(`/api/games?date=${date}&leagues=${leagues.join(",")}`);
-    const { response: games } = await res.json();
+    const data = await res.json();
+    const games = data.response || [];
 
     if (!games || games.length === 0) {
       statusDiv.textContent = "Keine Spiele gefunden.";
       return;
     }
 
-    // Berechne Top-7 nach "Trefferwahrscheinlichkeit"
-    const top7 = [...games]
-      .map(g => {
-        const best =
-          g.prob.home > g.prob.away && g.prob.home > g.prob.draw
-            ? { type: "1", val: g.prob.home }
-            : g.prob.away > g.prob.home && g.prob.away > g.prob.draw
-            ? { type: "2", val: g.prob.away }
-            : { type: "X", val: g.prob.draw };
-        return { ...g, best };
-      })
-      .sort((a, b) => b.best.val - a.best.val)
-      .slice(0, 7);
-
-    // Top7 Sektion
+    // ============= TOP LISTEN =============
     const topSection = document.createElement("div");
-    topSection.className = "top-section";
-    topSection.innerHTML = `<h2>🏅 Top 7 Siegwahrscheinlichkeiten</h2>
-      <ul>${top7
-        .map(
-          g =>
-            `<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> mit ${(g.best.val * 100).toFixed(1)}%</li>`
-        )
-        .join("")}</ul>`;
+    topSection.className = "top-section mb-6 p-4 bg-white/70 rounded-xl shadow";
+
+    function renderTopList(title, list, key) {
+      return `
+        <div class="mb-4">
+          <h3 class="font-semibold text-blue-800 mb-1">${title}</h3>
+          <ul class="list-disc list-inside text-sm">
+            ${list
+              .map(
+                g =>
+                  `<li><b>${g.home}</b> vs <b>${g.away}</b> – ${(
+                    g.prob
+                  ).toFixed(1)}% (${g.league}) ${
+                    g.isValue ? "<span class='text-green-600 font-semibold'>🔥 Value</span>" : ""
+                  }</li>`
+              )
+              .join("")}
+          </ul>
+        </div>`;
+    }
+
+    const tp = data.topByProb;
+    const tv = data.topByValue;
+    topSection.innerHTML = `
+      <h2 class="text-xl font-bold text-center mb-3">🏅 Top 5 Spiele</h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-blue-50 p-3 rounded-xl">
+          <h3 class="text-blue-700 font-semibold mb-2">Nach Wahrscheinlichkeit</h3>
+          ${renderTopList("🏠 Heimsieg", tp.home, "prob.home")}
+          ${renderTopList("⚽ Over 2.5", tp.over25, "prob.over25")}
+          ${renderTopList("🤝 BTTS", tp.btts, "prob.btts")}
+        </div>
+        <div class="bg-green-50 p-3 rounded-xl">
+          <h3 class="text-green-700 font-semibold mb-2">Nach Value</h3>
+          ${renderTopList("🏠 Heimsieg", tv.home, "value.home")}
+          ${renderTopList("⚽ Over 2.5", tv.over25, "value.over25")}
+          ${renderTopList("🤝 BTTS", tv.btts, "value.btts")}
+        </div>
+      </div>`;
     matchList.appendChild(topSection);
 
-    // Spiele-Karten
+    // ============= SPIELKARTEN =============
     games.forEach(g => {
       const card = document.createElement("div");
-      card.className = "match-card";
+      card.className =
+        "match-card bg-white/80 border rounded-2xl shadow p-4 mb-4 hover:shadow-md transition " +
+        (g.isValue ? "border-green-500 ring-2 ring-green-300" : "border-gray-300");
 
-      const homeVal = g.prob.home * 100;
-      const drawVal = g.prob.draw * 100;
-      const awayVal = g.prob.away * 100;
-      const overVal = g.prob.over25 * 100;
-      const bttsVal = g.prob.btts * 100;
+      const homeVal = (g.prob.home * 100).toFixed(1);
+      const drawVal = (g.prob.draw * 100).toFixed(1);
+      const awayVal = (g.prob.away * 100).toFixed(1);
+      const overVal = (g.prob.over25 * 100).toFixed(1);
+      const bttsVal = (g.prob.btts * 100).toFixed(1);
 
-      let trend =
-        homeVal > awayVal && homeVal > drawVal
-          ? "Heimsieg"
-          : awayVal > homeVal && awayVal > drawVal
-          ? "Auswärtssieg"
-          : "Unentschieden";
-      const trendOver = overVal > 50 ? "Over 2.5" : "Under 2.5";
-      const trendBTTS = bttsVal > 50 ? "BTTS: JA" : "BTTS: NEIN";
-
-      const bestChance = Math.max(homeVal, drawVal, awayVal, overVal, bttsVal);
-      const bestMarket =
-        bestChance === homeVal
-          ? "1"
-          : bestChance === drawVal
-          ? "X"
-          : bestChance === awayVal
-          ? "2"
-          : bestChance === overVal
-          ? "Over 2.5"
-          : "BTTS Ja";
+      const bestValueText = g.isValue
+        ? `<div class="text-center mt-2 font-semibold text-green-600">🔥 Value auf <span class="underline">${g.bestValueMarket.toUpperCase()}</span> (+${(
+            g.bestValueAmount * 100
+          ).toFixed(1)}%)</div>`
+        : "";
 
       card.innerHTML = `
-        <div class="match-header mb-3">
-          <div class="team">
-            <img src="${g.homeLogo}" alt="${g.home}" />
+        <div class="flex justify-between items-center mb-3">
+          <div class="flex items-center gap-2">
+            <img src="${g.homeLogo}" alt="${g.home}" class="w-10 h-8 rounded" />
             <div>
-              <div class="team-name">${g.home}</div>
-              <div class="team-xg">${g.homeXG} xG</div>
+              <div class="font-semibold">${g.home}</div>
+              <div class="text-xs text-gray-600">${g.homeXG} xG</div>
             </div>
           </div>
 
-          <span class="text-xs bg-blue-200 text-blue-800 px-3 py-1 rounded-full">${g.league}</span>
+          <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">${g.league}</span>
 
-          <div class="team text-right">
+          <div class="flex items-center gap-2 text-right">
             <div>
-              <div class="team-name">${g.away}</div>
-              <div class="team-xg">${g.awayXG} xG</div>
+              <div class="font-semibold">${g.away}</div>
+              <div class="text-xs text-gray-600">${g.awayXG} xG</div>
             </div>
-            <img src="${g.awayLogo}" alt="${g.away}" />
+            <img src="${g.awayLogo}" alt="${g.away}" class="w-10 h-8 rounded" />
           </div>
         </div>
 
-        <div class="text-amber-700 text-sm mb-2">
-          1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
+        <div class="text-sm text-gray-700 mb-1">1: ${g.odds.home.toFixed(
+          2
+        )} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}</div>
+
+        <div class="w-full bg-gray-200 h-4 rounded mb-2 relative">
+          <div class="absolute left-0 top-0 h-4 bg-blue-400 rounded-l" style="width:${homeVal}%;"></div>
+          <div class="absolute right-0 top-0 h-4 bg-red-400 rounded-r" style="width:${awayVal}%;"></div>
+          <div class="absolute inset-0 flex items-center justify-center text-xs text-white font-semibold">
+            1:${homeVal}% | X:${drawVal}% | 2:${awayVal}%
+          </div>
         </div>
 
-        <div class="bar-container mb-2">
-          <div class="bar-fill bar-home" style="width:${homeVal}%"></div>
-          <div class="bar-text">1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%</div>
-        </div>
-
-        <div class="bar-container mb-2">
-          <div class="bar-fill bar-over" style="width:${overVal}%"></div>
-          <div class="bar-text">Over:${overVal.toFixed(1)}% | Under:${(100 - overVal).toFixed(1)}%</div>
-        </div>
-
-        <div class="bar-container">
-          <div class="bar-fill bar-btts-yes" style="width:${bttsVal}%"></div>
-          <div class="bar-text">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100 - bttsVal).toFixed(1)}%</div>
-        </div>
-
-        <div class="trend">
-          <span class="trend-${trend === "Heimsieg" ? "home" : trend === "Auswärtssieg" ? "away" : "draw"}">${trend}</span>
-          <span class="trend-${trendOver.includes("Over") ? "over" : "under"}">${trendOver}</span>
-          <span class="trend-${trendBTTS.includes("JA") ? "btts-yes" : "btts-no"}">${trendBTTS}</span>
-        </div>
-
-        <div class="text-center mt-3 font-semibold text-blue-600">
-          👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
-        </div>
+        <div class="text-xs text-gray-600">Over 2.5: ${overVal}% | BTTS: ${bttsVal}%</div>
+        ${bestValueText}
       `;
 
       matchList.appendChild(card);
     });
 
-    statusDiv.textContent = `${games.length} Spiele geladen!`;
+    statusDiv.textContent = `${games.length} Spiele geladen ✅`;
   } catch (err) {
     statusDiv.textContent = "Fehler: " + err.message;
     console.error(err);
