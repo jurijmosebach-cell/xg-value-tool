@@ -38,15 +38,23 @@
       <input type="date" id="match-date" class="text-black rounded px-2 py-1" />
 
       <label for="league-select" class="font-medium">🏆 Ligen:</label>
-      <select id="league-select" multiple size="6" class="text-black rounded px-2 py-1">
-        <option value="soccer_epl">Premier League</option>
-        <option value="soccer_germany_bundesliga">Bundesliga</option>
-        <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
-        <option value="soccer_spain_la_liga">La Liga</option>
-        <option value="soccer_italy_serie_a">Serie A</option>
-        <option value="soccer_france_ligue_one">Ligue 1</option>
-        <option value="soccer_netherlands_eredivisie">Eredivisie</option>
-        <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
+      <select id="league-select" multiple size="12" class="text-black rounded px-2 py-1">
+        <!-- Nationale Topligen -->
+        <option value="soccer_epl">Premier League (England)</option>
+        <option value="soccer_germany_bundesliga">Bundesliga (Deutschland)</option>
+        <option value="soccer_germany_2_bundesliga">2. Bundesliga (Deutschland)</option>
+        <option value="soccer_spain_la_liga">La Liga (Spanien)</option>
+        <option value="soccer_italy_serie_a">Serie A (Italien)</option>
+        <option value="soccer_france_ligue_one">Ligue 1 (Frankreich)</option>
+        <option value="soccer_netherlands_eredivisie">Eredivisie (Niederlande)</option>
+        <option value="soccer_sweden_allsvenskan">Allsvenskan (Schweden)</option>
+        <option value="soccer_turkey_super_league">Süper Lig (Türkei)</option>
+        <option value="soccer_usa_mls">Major League Soccer (USA)</option>
+
+        <!-- Europäische Wettbewerbe -->
+        <option value="soccer_uefa_champs_league">UEFA Champions League</option>
+        <option value="soccer_uefa_champs_league_qualification">Champions League Qualifikation</option>
+        <option value="soccer_uefa_europa_conference_league">Europa Conference League</option>
       </select>
 
       <button id="refresh">🔄 Spiele laden</button>
@@ -55,6 +63,7 @@
     <div id="status" class="text-center mb-3 text-gray-700">
       Bitte Datum & Ligen auswählen, dann „Spiele laden“ drücken.
     </div>
+
     <div id="match-list" class="max-w-5xl mx-auto"></div>
 
     <script src="app.js"></script>
