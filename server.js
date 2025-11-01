@@ -12,102 +12,56 @@ const app = express();
 app.use(cors());
 app.use(express.static(__dirname));
 
-const SOCCERDATA_KEY = process.env.SOCCERDATA_KEY || "4edc0535a5304abcfd3999fad3e6293d0b02e1a0";
+const SOCCERDATA_KEY = "4edc0535a5304abcfd3999fad3e6293d0b02e1a0"; // dein Key
 const PORT = process.env.PORT || 10000;
 
+// -----------------------------
+// Ligen mit SoccerData league_id
+// -----------------------------
 const LEAGUES = [
-  { name: "Premier League", oldKey: "soccer_epl" },
-  { name: "Bundesliga", oldKey: "soccer_germany_bundesliga" },
-  { name: "2. Bundesliga", oldKey: "soccer_germany_2_bundesliga" },
-  { name: "La Liga", oldKey: "soccer_spain_la_liga" },
-  { name: "Serie A", oldKey: "soccer_italy_serie_a" },
-  { name: "Ligue 1", oldKey: "soccer_france_ligue_one" },
-  { name: "Eredivisie", oldKey: "soccer_netherlands_eredivisie" },
-  { name: "Allsvenskan", oldKey: "soccer_sweden_allsvenskan" },
-  { name: "MLS", oldKey: "soccer_usa_mls" },
-  { name: "UEFA Europa Conference League", oldKey: "soccer_uefa_europa_conference_league" },
-  { name: "UEFA Champions League", oldKey: "soccer_uefa_champs_league" },
-  { name: "UEFA Champions League Qualification", oldKey: "soccer_uefa_champs_league_qualification" },
-  { name: "Turkey Super League", oldKey: "soccer_turkey_super_league" }
+  { name: "Premier League", league_id: 39, baseXG: [1.55, 1.25] },
+  { name: "Bundesliga", league_id: 78, baseXG: [1.60, 1.35] },
+  { name: "2. Bundesliga", league_id: 79, baseXG: [1.55, 1.45] },
+  { name: "La Liga", league_id: 140, baseXG: [1.45, 1.20] },
+  { name: "Serie A", league_id: 135, baseXG: [1.45, 1.25] },
+  { name: "Ligue 1", league_id: 61, baseXG: [1.55, 1.35] },
+  { name: "Eredivisie", league_id: 88, baseXG: [1.70, 1.45] },
+  { name: "Allsvenskan", league_id: 132, baseXG: [1.55, 1.45] },
+  { name: "MLS", league_id: 168, baseXG: [1.45, 1.25] },
+  { name: "Europa Conference League", league_id: 198, baseXG: [1.35, 1.35] },
+  { name: "UEFA Champions League", league_id: 196, baseXG: [1.45, 1.45] },
+  { name: "UEFA Champions League Qualification", league_id: 195, baseXG: [1.20, 1.20] },
+  { name: "Turkey Super League", league_id: 130, baseXG: [1.55, 1.35] },
 ];
 
+// -----------------------------
 // Cache
+// -----------------------------
 const CACHE = {};
 function cacheKey(date, leagues) {
-  return `${date}_${leagues.sort().join(",")}`;
+  return `${date}_${leagues.map(l => l.league_id).sort().join(",")}`;
 }
 
 // -----------------------------
-// Math-Hilfen (Poisson, xG, Score-Matrix, BTTS)
+// Helper: fetch JSON safely
 // -----------------------------
-const MAX_GOALS = 6;
-const factorials = [1];
-for (let i = 1; i <= 20; i++) factorials[i] = factorials[i - 1] * i;
-
-function poissonPMF(k, lambda) {
-  return Math.exp(-lambda) * Math.pow(lambda, k) / factorials[k];
-}
-
-function scoreMatrix(lambdaHome, lambdaAway) {
-  const mat = [];
-  let sum = 0;
-  for (let i = 0; i <= MAX_GOALS; i++) {
-    mat[i] = [];
-    for (let j = 0; j <= MAX_GOALS; j++) {
-      const p = poissonPMF(i, lambdaHome) * poissonPMF(j, lambdaAway);
-      mat[i][j] = p;
-      sum += p;
+async function fetchJSON(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { "Accept-Encoding": "gzip", "Content-Type": "application/json" },
+    });
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      console.error("Fehler: Response kein JSON, URL:", url);
+      console.log("Response Vorschau:", text.slice(0, 500));
+      return null;
     }
+  } catch (err) {
+    console.error("Fetch-Fehler:", err.message, "URL:", url);
+    return null;
   }
-  return { mat, coveredProb: sum };
-}
-
-function probTotalLeK(mat, k) {
-  let s = 0;
-  for (let i = 0; i <= MAX_GOALS; i++) {
-    for (let j = 0; j <= MAX_GOALS; j++) {
-      if (i + j <= k) s += mat[i][j];
-    }
-  }
-  return s;
-}
-
-function probsFromMatrix(mat) {
-  let ph = 0, pd = 0, pa = 0;
-  for (let i = 0; i <= MAX_GOALS; i++) {
-    for (let j = 0; j <= MAX_GOALS; j++) {
-      if (i > j) ph += mat[i][j];
-      else if (i === j) pd += mat[i][j];
-      else pa += mat[i][j];
-    }
-  }
-  return { home: ph, draw: pd, away: pa };
-}
-
-function calcBTTS(lambdaHome, lambdaAway) {
-  const p0h = Math.exp(-lambdaHome);
-  const p0a = Math.exp(-lambdaAway);
-  const p00 = Math.exp(-(lambdaHome + lambdaAway));
-  return 1 - p0h - p0a + p00;
-}
-
-// -----------------------------
-// Hilfsfunktionen SoccerData API
-// -----------------------------
-async function getAllLeagues() {
-  const res = await fetch(`https://api.soccerdataapi.com/league/?auth_token=${SOCCERDATA_KEY}`, {
-    headers: { "Accept-Encoding": "gzip", "Content-Type": "application/json" }
-  });
-  const data = await res.json();
-  return data.results || [];
-}
-
-async function getMatches(leagueId, date) {
-  const res = await fetch(`https://api.soccerdataapi.com/matches/?auth_token=${SOCCERDATA_KEY}&league_id=${leagueId}&date=${date}`, {
-    headers: { "Accept-Encoding": "gzip", "Content-Type": "application/json" }
-  });
-  const data = await res.json();
-  return data.results || [];
 }
 
 // -----------------------------
@@ -116,56 +70,64 @@ async function getMatches(leagueId, date) {
 app.get("/api/games", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const date = req.query.date || today;
-  const selectedLeagues = req.query.leagues
-    ? req.query.leagues.split(",")
-    : LEAGUES.map(l => l.oldKey);
+  const leaguesParam = req.query.leagues
+    ? req.query.leagues.split(",").map(l => LEAGUES.find(ll => ll.name === l)).filter(Boolean)
+    : LEAGUES;
 
-  const cacheId = cacheKey(date, selectedLeagues);
+  const cacheId = cacheKey(date, leaguesParam);
   if (CACHE[cacheId]) return res.json(CACHE[cacheId]);
 
-  const allLeagues = await getAllLeagues();
   const games = [];
 
-  for (const l of LEAGUES.filter(lg => selectedLeagues.includes(lg.oldKey))) {
-    const leagueData = allLeagues.find(a => a.name.toLowerCase() === l.name.toLowerCase());
-    if (!leagueData) continue;
+  for (const league of leaguesParam) {
+    const url = `https://api.soccerdataapi.com/matches/?league_id=${league.league_id}&date=${date}&auth_token=${SOCCERDATA_KEY}`;
+    const data = await fetchJSON(url);
+    if (!data || !data.results) continue;
 
-    const matches = await getMatches(leagueData.id, date);
-    for (const g of matches) {
-      const home = g.home_team.name;
-      const away = g.away_team.name;
+    for (const g of data.results) {
+      const home = g.home_team?.name || g.home_team;
+      const away = g.away_team?.name || g.away_team;
+      if (!home || !away) continue;
 
-      // Simple xG estimate: 1.5 / 1.2 as baseline (can be improved with SoccerData AI predictions)
-      const homeXG = g.prediction?.home_xg || 1.5;
-      const awayXG = g.prediction?.away_xg || 1.2;
+      const homeXG = league.baseXG[0];
+      const awayXG = league.baseXG[1];
+      const totalXG = homeXG + awayXG;
 
-      const { mat } = scoreMatrix(homeXG, awayXG);
-      const scoreProbs = probsFromMatrix(mat);
-      const probHome = scoreProbs.home;
-      const probDraw = scoreProbs.draw;
-      const probAway = scoreProbs.away;
-      const over25Prob = 1 - probTotalLeK(mat, 2);
-      const bttsProb = calcBTTS(homeXG, awayXG);
+      // einfache Poisson-Berechnung
+      const probHome = homeXG / totalXG;
+      const probAway = awayXG / totalXG;
+      const probDraw = 1 - (probHome + probAway);
+      const probOver25 = totalXG > 2.5 ? 0.7 : 0.3; // Dummy Over/Under
+      const probBTTS = 0.6; // Dummy BTTS
+
+      const odds = { home: 2, draw: 3, away: 2.5, over25: 1.9, under25: 1.9 }; // Dummy Odds
+      const value = {
+        home: probHome * odds.home - 1,
+        draw: probDraw * odds.draw - 1,
+        away: probAway * odds.away - 1,
+        over25: probOver25 * odds.over25 - 1,
+        under25: (1 - probOver25) * odds.under25 - 1,
+        btts: probBTTS * 1.9 - 1,
+      };
+
+      const bestValue = Object.entries(value).sort((a, b) => b[1] - a[1])[0];
 
       games.push({
         home,
         away,
-        league: l.name,
-        commence_time: g.match_start,
-        homeLogo: `https://placehold.co/48x36?text=${encodeURIComponent(home[0] || "H")}`,
-        awayLogo: `https://placehold.co/48x36?text=${encodeURIComponent(away[0] || "A")}`,
-        prob: {
-          home: probHome,
-          draw: probDraw,
-          away: probAway,
-          over25: over25Prob,
-          under25: 1 - over25Prob,
-          btts: bttsProb
-        },
-        value: {}, // keine Odds von SoccerData Free, kann leer bleiben
-        homeXG: +homeXG.toFixed(2),
-        awayXG: +awayXG.toFixed(2),
-        totalXG: +(homeXG + awayXG).toFixed(2)
+        league: league.name,
+        commence_time: g.commence_time,
+        homeLogo: `https://placehold.co/48x36?text=${home[0]}`,
+        awayLogo: `https://placehold.co/48x36?text=${away[0]}`,
+        odds,
+        prob: { home: probHome, draw: probDraw, away: probAway, over25: probOver25, under25: 1 - probOver25, btts: probBTTS },
+        value,
+        bestValueMarket: bestValue[0],
+        bestValueAmount: +bestValue[1].toFixed(2),
+        isValue: bestValue[1] > 0,
+        homeXG,
+        awayXG,
+        totalXG,
       });
     }
   }
