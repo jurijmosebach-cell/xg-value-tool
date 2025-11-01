@@ -6,20 +6,16 @@
     <title>xG Odds Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css" />
-    <style>
-      body { background: #f5f5f5; color: #1a1a1a; font-family: sans-serif; }
-      .match-card { background: #fff; }
-    </style>
   </head>
-  <body class="p-4">
+  <body class="bg-gray-100 text-black p-4">
     <h1 class="text-2xl font-bold mb-4">⚽ xG Odds Dashboard</h1>
 
-    <div class="flex flex-wrap gap-3 mb-4">
-      <label for="match-date">📅 Datum:</label>
+    <div class="flex flex-wrap justify-center items-center gap-3 mb-4">
+      <label for="match-date" class="font-medium">📅 Datum:</label>
       <input type="date" id="match-date" class="text-black rounded px-2 py-1" />
 
-      <label for="league-select">🏆 Ligen:</label>
-      <select id="league-select" multiple size="10" class="text-black rounded px-2 py-1">
+      <label for="league-select" class="font-medium">🏆 Ligen:</label>
+      <select id="league-select" multiple size="12" class="text-black rounded px-2 py-1">
         <option value="soccer_epl">Premier League</option>
         <option value="soccer_germany_bundesliga">Bundesliga</option>
         <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
@@ -35,10 +31,10 @@
         <option value="soccer_usa_mls">Major League Soccer (USA)</option>
       </select>
 
-      <button id="refresh" class="px-3 py-1 bg-blue-600 text-white rounded">🔄 Spiele laden</button>
+      <button id="refresh" class="px-3 py-1 bg-blue-500 text-white rounded">🔄 Spiele laden</button>
     </div>
 
-    <div id="status" class="mb-4 font-semibold">Bitte Datum & Ligen auswählen, dann „Spiele laden“ drücken.</div>
+    <div id="status" class="mb-4">Bitte Datum & Ligen auswählen, dann „Spiele laden“ drücken.</div>
     <div id="match-list"></div>
 
     <script src="app.js"></script>
