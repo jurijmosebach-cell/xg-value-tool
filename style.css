@@ -1,214 +1,194 @@
-/* -----------------------------
-   Allgemein
------------------------------ */
+/* 🌤 Allgemeines Seitenlayout */
 body {
-  font-family: Arial, sans-serif;
-  background-color: #f9fafb; /* helles Grau */
-  color: #111827;
   margin: 0;
-  padding: 20px;
+  padding: 0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background: #f7fafc;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-h1 {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-/* -----------------------------
-   Status
------------------------------ */
-#status {
-  text-align: center;
-  margin-bottom: 15px;
-  font-weight: bold;
-  color: #1e40af;
-}
-
-/* -----------------------------
-   Match-Karten
------------------------------ */
-.match-card {
-  display: block;
-  background-color: #ffffff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-  transition: transform 0.1s;
-}
-
-.match-card:hover {
-  transform: translateY(-2px);
-}
-
-/* -----------------------------
-   Match Header (Teams)
------------------------------ */
-.match-header {
+/* 🧭 Kopfbereich */
+header {
+  width: 100%;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 12px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
-}
-
-.team {
-  display: flex;
-  align-items: center;
-}
-
-.team img {
-  width: 48px;
-  height: 36px;
-  object-fit: contain;
-  margin-right: 6px;
-}
-
-.team-name {
-  font-weight: bold;
-}
-
-.team-xg {
-  font-size: 0.85em;
-  color: #6b7280;
-}
-
-/* -----------------------------
-   Odds Text
------------------------------ */
-.text-amber-700 {
-  color: #b45309;
-  font-size: 0.9em;
-  margin-bottom: 4px;
-}
-
-/* -----------------------------
-   Wahrscheinlichkeitsbalken
------------------------------ */
-.bar-container {
-  position: relative;
-  background-color: #e5e7eb;
-  border-radius: 6px;
-  height: 20px;
-  margin-bottom: 6px;
-  overflow: hidden;
-}
-
-.bar-fill {
-  height: 100%;
-  border-radius: 6px;
-}
-
-.bar-home {
-  background-color: #3b82f6; /* Blau */
-}
-
-.bar-over {
-  background-color: #f59e0b; /* Orange */
-}
-
-.bar-btts-yes {
-  background-color: #10b981; /* Grün */
-}
-
-.bar-text {
-  position: absolute;
+  position: sticky;
   top: 0;
-  left: 6px;
-  font-size: 0.75em;
-  color: #111827;
-  line-height: 20px;
+  z-index: 100;
 }
 
-/* -----------------------------
-   Trend-Anzeige
------------------------------ */
-.trend {
-  display: flex;
-  justify-content: flex-start;
-  gap: 8px;
-  margin-top: 6px;
-  font-weight: bold;
-  font-size: 0.85em;
+header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1e40af;
 }
 
-.trend-home {
-  color: #3b82f6;
+/* 🏆 League Select Dropdown */
+#leagueSelect {
+  min-width: 250px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 0.9rem;
+  outline: none;
+  transition: 0.2s;
+}
+#leagueSelect:hover {
+  border-color: #3b82f6;
+}
+#leagueSelect:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px #93c5fd;
 }
 
-.trend-away {
+/* 🔄 Loader */
+#loader {
+  display: none;
+  margin-top: 20px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* 📊 Spielkarten */
+.game-card {
+  width: 95%;
+  max-width: 700px;
+  background: #ffffffcc;
+  backdrop-filter: blur(6px);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 8px auto;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+.game-card:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+}
+
+/* 🏠 Spieltitel */
+.game-card .font-semibold {
+  color: #0f172a;
+}
+
+/* 🔢 Statistiken */
+.game-card .text-xs {
+  color: #475569;
+}
+.game-card .text-sm {
+  color: #334155;
+}
+
+/* 💹 Highlight bei Value */
+.bg-green-100 {
+  background-color: #dcfce7 !important;
+  border: 1px solid #86efac !important;
+}
+.border-green-400 {
+  border-color: #4ade80 !important;
+}
+
+/* 🧱 Top-Listen */
+#topContainer {
+  width: 95%;
+  max-width: 700px;
+  margin: 10px auto 20px auto;
+}
+#topContainer .rounded-2xl {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+#topContainer h2 {
+  color: #1e40af;
+  border-bottom: 2px solid #bfdbfe;
+  padding-bottom: 4px;
+}
+
+/* 🔹 Fehleranzeige */
+.error {
   color: #ef4444;
-}
-
-.trend-draw {
-  color: #6b7280;
-}
-
-.trend-over {
-  color: #f59e0b;
-}
-
-.trend-under {
-  color: #f97316;
-}
-
-.trend-btts-yes {
-  color: #10b981;
-}
-
-.trend-btts-no {
-  color: #6b7280;
-}
-
-/* -----------------------------
-   Empfehlung
------------------------------ */
-.text-center {
+  background: #fee2e2;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 12px;
   text-align: center;
 }
 
-.font-semibold {
-  font-weight: 600;
+/* 📱 Responsives Verhalten */
+@media (max-width: 600px) {
+  .game-card {
+    width: 98%;
+    font-size: 0.9rem;
+    padding: 10px;
+  }
+  #leagueSelect {
+    width: 90%;
+  }
+  header {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 
-.text-blue-600 {
-  color: #2563eb;
+/* 🧾 Tabellen und Balkenoptik */
+.grid {
+  display: grid;
+}
+.grid-cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+.gap-1 {
+  gap: 0.25rem;
+}
+.text-gray-500 {
+  color: #6b7280;
+}
+.text-gray-600 {
+  color: #4b5563;
+}
+.text-gray-400 {
+  color: #9ca3af;
 }
 
-/* -----------------------------
-   Top Sektionen
------------------------------ */
-.top-section {
-  background-color: #f3f4f6;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 16px;
+/* 🟩 Balkenfarben optional (wenn Balkenvisuals kommen) */
+.bar-home {
+  background-color: #22c55e;
+  height: 6px;
+  border-radius: 3px;
 }
-
-.top-section h2 {
-  margin-bottom: 8px;
-  font-size: 1.1em;
+.bar-draw {
+  background-color: #facc15;
+  height: 6px;
+  border-radius: 3px;
 }
-
-.top-section ul {
-  list-style: none;
-  padding-left: 0;
+.bar-away {
+  background-color: #ef4444;
+  height: 6px;
+  border-radius: 3px;
 }
-
-.top-section li {
-  margin-bottom: 4px;
-  font-size: 0.9em;
+.bar-over {
+  background-color: #3b82f6;
+  height: 6px;
+  border-radius: 3px;
 }
-
-/* -----------------------------
-   Formular-Controls
------------------------------ */
-input, select, button {
-  font-size: 0.9em;
-  margin-right: 6px;
-  margin-bottom: 6px;
-}
-
-select {
-  min-width: 180px;
+.bar-btts {
+  background-color: #a855f7;
+  height: 6px;
+  border-radius: 3px;
 }
