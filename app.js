@@ -95,95 +95,88 @@ async function loadMatches() {
     // -----------------------------
     // Spiele-Karten
     // -----------------------------
-    games.forEach(g => {
-      const card = document.createElement("div");
-      card.className = "match-card";
+  games.forEach(g => {
+  const card = document.createElement("div");
+  card.className = "match-card";
 
-      const homeVal = g.prob.home * 100;
-      const drawVal = g.prob.draw * 100;
-      const awayVal = g.prob.away * 100;
-      const overVal = g.prob.over25 * 100;
-      const bttsVal = g.prob.btts * 100;
+  const homeVal = g.prob.home ? g.prob.home * 100 : 0;
+  const drawVal = g.prob.draw ? g.prob.draw * 100 : 0;
+  const awayVal = g.prob.away ? g.prob.away * 100 : 0;
+  const overVal = g.prob.over25 ? g.prob.over25 * 100 : 0;
+  const bttsVal = g.prob.btts ? g.prob.btts * 100 : 0; // <- safe fallback
 
-      const trend =
-        homeVal > awayVal && homeVal > drawVal
-          ? "Heimsieg"
-          : awayVal > homeVal && awayVal > drawVal
-          ? "Auswärtssieg"
-          : "Unentschieden";
+  const trend =
+    homeVal > awayVal && homeVal > drawVal
+      ? "Heimsieg"
+      : awayVal > homeVal && awayVal > drawVal
+      ? "Auswärtssieg"
+      : "Unentschieden";
 
-      const trendOver = overVal > 50 ? "Over 2.5" : "Under 2.5";
-      const trendBTTS = bttsVal > 50 ? "BTTS: JA" : "BTTS: NEIN";
+  const trendOver = overVal > 50 ? "Over 2.5" : "Under 2.5";
+  const trendBTTS = bttsVal > 50 ? "BTTS: JA" : "BTTS: NEIN";
 
-      const bestChance = Math.max(homeVal, drawVal, awayVal, overVal, bttsVal);
-      const bestMarket =
-        bestChance === homeVal
-          ? "1"
-          : bestChance === drawVal
-          ? "X"
-          : bestChance === awayVal
-          ? "2"
-          : bestChance === overVal
-          ? "Over 2.5"
-          : "BTTS Ja";
+  const bestChance = Math.max(homeVal, drawVal, awayVal, overVal, bttsVal);
+  const bestMarket =
+    bestChance === homeVal
+      ? "1"
+      : bestChance === drawVal
+      ? "X"
+      : bestChance === awayVal
+      ? "2"
+      : bestChance === overVal
+      ? "Over 2.5"
+      : "BTTS Ja";
 
-      card.innerHTML = `
-        <div class="match-header mb-3">
-          <div class="team">
-            <img src="${g.homeLogo}" alt="${g.home}" />
-            <div>
-              <div class="team-name">${g.home}</div>
-              <div class="team-xg">${g.homeXG} xG</div>
-            </div>
-          </div>
-
-          <span class="text-xs bg-blue-200 text-blue-800 px-3 py-1 rounded-full">${g.league}</span>
-
-          <div class="team text-right">
-            <div>
-              <div class="team-name">${g.away}</div>
-              <div class="team-xg">${g.awayXG} xG</div>
-            </div>
-            <img src="${g.awayLogo}" alt="${g.away}" />
-          </div>
+  card.innerHTML = `
+    <div class="match-header mb-3">
+      <div class="team">
+        <img src="${g.homeLogo}" alt="${g.home}" />
+        <div>
+          <div class="team-name">${g.home}</div>
+          <div class="team-xg">${g.homeXG || 0} xG</div>
         </div>
+      </div>
 
-        <div class="text-amber-700 text-sm mb-2">
-          1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
+      <span class="text-xs bg-blue-200 text-blue-800 px-3 py-1 rounded-full">${g.league}</span>
+
+      <div class="team text-right">
+        <div>
+          <div class="team-name">${g.away}</div>
+          <div class="team-xg">${g.awayXG || 0} xG</div>
         </div>
+        <img src="${g.awayLogo}" alt="${g.away}" />
+      </div>
+    </div>
 
-        <div class="bar-container mb-2">
-          <div class="bar-fill bar-home" style="width:${homeVal}%"></div>
-          <div class="bar-text">1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%</div>
-        </div>
+    <div class="text-amber-700 text-sm mb-2">
+      1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
+    </div>
 
-        <div class="bar-container mb-2">
-          <div class="bar-fill bar-over" style="width:${overVal}%"></div>
-          <div class="bar-text">Over:${overVal.toFixed(1)}% | Under:${(100 - overVal).toFixed(1)}%</div>
-        </div>
+    <div class="bar-container mb-2">
+      <div class="bar-fill bar-home" style="width:${homeVal}%"></div>
+      <div class="bar-text">1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%</div>
+    </div>
 
-        <div class="bar-container">
-          <div class="bar-fill bar-btts-yes" style="width:${bttsVal}%"></div>
-          <div class="bar-text">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100 - bttsVal).toFixed(1)}%</div>
-        </div>
+    <div class="bar-container mb-2">
+      <div class="bar-fill bar-over" style="width:${overVal}%"></div>
+      <div class="bar-text">Over:${overVal.toFixed(1)}% | Under:${(100 - overVal).toFixed(1)}%</div>
+    </div>
 
-        <div class="trend">
-          <span class="trend-${trend === "Heimsieg" ? "home" : trend === "Auswärtssieg" ? "away" : "draw"}">${trend}</span>
-          <span class="trend-${trendOver.includes("Over") ? "over" : "under"}">${trendOver}</span>
-          <span class="trend-${trendBTTS.includes("JA") ? "btts-yes" : "btts-no"}">${trendBTTS}</span>
-        </div>
+    <div class="bar-container">
+      <div class="bar-fill bar-btts-yes" style="width:${bttsVal}%"></div>
+      <div class="bar-text">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100 - bttsVal).toFixed(1)}%</div>
+    </div>
 
-        <div class="text-center mt-3 font-semibold text-blue-600">
-          👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
-        </div>
-      `;
+    <div class="trend">
+      <span class="trend-${trend === "Heimsieg" ? "home" : trend === "Auswärtssieg" ? "away" : "draw"}">${trend}</span>
+      <span class="trend-${trendOver.includes("Over") ? "over" : "under"}">${trendOver}</span>
+      <span class="trend-${trendBTTS.includes("JA") ? "btts-yes" : "btts-no"}">${trendBTTS}</span>
+    </div>
 
-      matchList.appendChild(card);
-    });
+    <div class="text-center mt-3 font-semibold text-blue-600">
+      👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
+    </div>
+  `;
 
-    statusDiv.textContent = `${games.length} Spiele geladen!`;
-  } catch (err) {
-    statusDiv.textContent = "Fehler: " + err.message;
-    console.error(err);
-  }
-}
+  matchList.appendChild(card);
+});
