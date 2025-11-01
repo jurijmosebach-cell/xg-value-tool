@@ -7,35 +7,137 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body class="bg-gray-100 text-black p-4">
-    <h1 class="text-2xl font-bold mb-4">⚽ xG Odds Dashboard</h1>
+  <body class="bg-gray-50 text-gray-800 min-h-screen">
+    <div class="container mx-auto p-4">
+      <h1 class="text-3xl font-bold text-center mb-6">⚽ xG Odds Dashboard</h1>
 
-    <div class="flex flex-wrap justify-center items-center gap-3 mb-4">
-      <label for="match-date" class="font-medium">📅 Datum:</label>
-      <input type="date" id="match-date" class="text-black rounded px-2 py-1" />
+      <!-- Filter Section -->
+      <div class="flex flex-wrap justify-center items-center gap-3 mb-6">
+        <label for="match-date" class="font-medium">📅 Datum:</label>
+        <input type="date" id="match-date" class="text-black rounded px-2 py-1" />
 
-      <label for="league-select" class="font-medium">🏆 Ligen:</label>
-      <select id="league-select" multiple size="12" class="text-black rounded px-2 py-1">
-        <option value="soccer_epl">Premier League</option>
-        <option value="soccer_germany_bundesliga">Bundesliga</option>
-        <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
-        <option value="soccer_spain_la_liga">La Liga</option>
-        <option value="soccer_italy_serie_a">Serie A</option>
-        <option value="soccer_france_ligue_one">Ligue 1</option>
-        <option value="soccer_netherlands_eredivisie">Eredivisie</option>
-        <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
-        <option value="soccer_turkey_super_league">Turkey Süper Lig</option>
-        <option value="soccer_uefa_europa_conference_league">UEFA Europa Conference League</option>
-        <option value="soccer_uefa_champs_league">UEFA Champions League</option>
-        <option value="soccer_uefa_champs_league_qualification">Champions League Qualification</option>
-        <option value="soccer_usa_mls">Major League Soccer (USA)</option>
-      </select>
+        <label for="league-select" class="font-medium">🏆 Ligen:</label>
+        <select
+          id="league-select"
+          multiple
+          size="8"
+          class="text-black rounded px-2 py-1"
+        >
+          <option value="soccer_epl">Premier League</option>
+          <option value="soccer_germany_bundesliga">Bundesliga</option>
+          <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
+          <option value="soccer_spain_la_liga">La Liga</option>
+          <option value="soccer_italy_serie_a">Serie A</option>
+          <option value="soccer_france_ligue_one">Ligue 1</option>
+          <option value="soccer_netherlands_eredivisie">Eredivisie</option>
+          <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
+          <option value="soccer_turkey_super_league">Turkey Super League</option>
+          <option value="soccer_uefa_europa_conference_league">UEFA Europa Conference League</option>
+          <option value="soccer_uefa_champs_league">UEFA Champions League</option>
+          <option value="soccer_uefa_champs_league_qualification">Champions League Qualification</option>
+          <option value="soccer_usa_mls">MLS (USA)</option>
+        </select>
 
-      <button id="refresh" class="px-3 py-1 bg-blue-500 text-white rounded">🔄 Spiele laden</button>
+        <button id="refresh" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">🔄 Spiele laden</button>
+      </div>
+
+      <!-- Status -->
+      <div id="status" class="text-center mb-6 font-medium"></div>
+
+      <!-- Top Lists -->
+      <div id="match-list" class="space-y-6">
+        <!-- JS fügt hier Top 7, Top Value, Over 2.5, BTTS und Spiele ein -->
+      </div>
     </div>
 
-    <div id="status" class="mb-4">Bitte Datum & Ligen auswählen, dann „Spiele laden“ drücken.</div>
-    <div id="match-list"></div>
+    <style>
+      /* Match Card */
+      .match-card {
+        background-color: #ffffff;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      }
+
+      .match-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .team {
+        display: flex;
+        align-items: center;
+      }
+
+      .team img {
+        width: 48px;
+        height: 36px;
+        margin-right: 0.5rem;
+      }
+
+      .bar-container {
+        position: relative;
+        background-color: #e5e7eb;
+        height: 24px;
+        border-radius: 0.25rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .bar-fill {
+        height: 100%;
+        border-radius: 0.25rem;
+      }
+
+      .bar-home { background-color: #34d399; }
+      .bar-over { background-color: #60a5fa; }
+      .bar-btts-yes { background-color: #fbbf24; }
+
+      .bar-text {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #111827;
+        top: 0;
+        line-height: 24px;
+      }
+
+      .trend span {
+        display: inline-block;
+        margin-right: 0.5rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .trend-home { background-color: #34d399; color: white; }
+      .trend-away { background-color: #f87171; color: white; }
+      .trend-draw { background-color: #facc15; color: black; }
+      .trend-over { background-color: #60a5fa; color: white; }
+      .trend-under { background-color: #93c5fd; color: black; }
+      .trend-btts-yes { background-color: #fbbf24; color: black; }
+      .trend-btts-no { background-color: #fde68a; color: black; }
+
+      /* Top Section Box */
+      .top-section {
+        background-color: #f3f4f6;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      }
+      .top-section h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+      .top-section ul {
+        list-style: disc inside;
+        padding-left: 0;
+      }
+    </style>
 
     <script src="app.js"></script>
   </body>
