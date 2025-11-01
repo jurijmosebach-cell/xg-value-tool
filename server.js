@@ -13,26 +13,40 @@ app.use(cors());
 app.use(express.static(__dirname));
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
-const SOCCERDATA_KEY = "4edc0535a5304abcfd3999fad3e6293d0b02e1a0";
+if (!ODDS_API_KEY) console.error("FEHLER: ODDS_API_KEY fehlt!");
 
 const PORT = process.env.PORT || 10000;
 
-// -------------------------------------------------
-// LEAGUES
-// -------------------------------------------------
+// -----------------------------
+// Ligen mit Basis-xG
+// -----------------------------
 const LEAGUES = [
   { key: "soccer_epl", name: "Premier League", baseXG: [1.55, 1.25] },
   { key: "soccer_germany_bundesliga", name: "Bundesliga", baseXG: [1.60, 1.35] },
+  { key: "soccer_germany_2_bundesliga", name: "2. Bundesliga", baseXG: [1.55, 1.45] },
   { key: "soccer_spain_la_liga", name: "La Liga", baseXG: [1.45, 1.20] },
   { key: "soccer_italy_serie_a", name: "Serie A", baseXG: [1.45, 1.25] },
   { key: "soccer_france_ligue_one", name: "Ligue 1", baseXG: [1.55, 1.35] },
   { key: "soccer_netherlands_eredivisie", name: "Eredivisie", baseXG: [1.70, 1.45] },
-  { key: "soccer_usa_mls", name: "MLS", baseXG: [1.60, 1.45] },
+  { key: "soccer_sweden_allsvenskan", name: "Allsvenskan", baseXG: [1.55, 1.45] },
+  { key: "soccer_turkey_super_league", name: "Turkey Super League", baseXG: [1.55, 1.35] },
+  { key: "soccer_uefa_europa_conference_league", name: "UEFA Europa Conference League", baseXG: [1.40, 1.20] },
+  { key: "soccer_uefa_champs_league", name: "UEFA Champions League", baseXG: [1.50, 1.30] },
+  { key: "soccer_uefa_champs_league_qualification", name: "Champions League Qualification", baseXG: [1.45, 1.25] },
+  { key: "soccer_usa_mls", name: "Major League Soccer (MLS)", baseXG: [1.55, 1.40] },
 ];
 
-// -------------------------------------------------
-// Mathematische Hilfsfunktionen
-// -------------------------------------------------
+// -----------------------------
+// Cache
+// -----------------------------
+const CACHE = {};
+function cacheKey(date, leagues) {
+  return `${date}_${leagues.sort().join(",")}`;
+}
+
+// -----------------------------
+// Poisson & xG Hilfen
+// -----------------------------
 const MAX_GOALS = 6;
 const factorials = [1];
 for (let i = 1; i <= 20; i++) factorials[i] = factorials[i - 1] * i;
@@ -43,13 +57,16 @@ function poissonPMF(k, lambda) {
 
 function scoreMatrix(lambdaHome, lambdaAway) {
   const mat = [];
+  let sum = 0;
   for (let i = 0; i <= MAX_GOALS; i++) {
     mat[i] = [];
     for (let j = 0; j <= MAX_GOALS; j++) {
-      mat[i][j] = poissonPMF(i, lambdaHome) * poissonPMF(j, lambdaAway);
+      const p = poissonPMF(i, lambdaHome) * poissonPMF(j, lambdaAway);
+      mat[i][j] = p;
+      sum += p;
     }
   }
-  return mat;
+  return { mat, coveredProb: sum };
 }
 
 function probTotalLeK(mat, k) {
@@ -63,68 +80,52 @@ function probTotalLeK(mat, k) {
 }
 
 function probsFromMatrix(mat) {
-  let pHome = 0, pDraw = 0, pAway = 0;
+  let ph = 0, pd = 0, pa = 0;
   for (let i = 0; i <= MAX_GOALS; i++) {
     for (let j = 0; j <= MAX_GOALS; j++) {
-      if (i > j) pHome += mat[i][j];
-      else if (i === j) pDraw += mat[i][j];
-      else pAway += mat[i][j];
+      if (i > j) ph += mat[i][j];
+      else if (i === j) pd += mat[i][j];
+      else pa += mat[i][j];
     }
   }
-  const sum = pHome + pDraw + pAway;
-  return { home: pHome / sum, draw: pDraw / sum, away: pAway / sum };
+  return { home: ph, draw: pd, away: pa };
 }
 
 function calcBTTS(lambdaHome, lambdaAway) {
   const p0h = Math.exp(-lambdaHome);
   const p0a = Math.exp(-lambdaAway);
-  return 1 - p0h - p0a + Math.exp(-(lambdaHome + lambdaAway));
+  const p00 = Math.exp(-(lambdaHome + lambdaAway));
+  return 1 - p0h - p0a + p00;
 }
 
-// -------------------------------------------------
-// 1️⃣ Hole Spiele aus SoccerData
-// -------------------------------------------------
-async function getSoccerDataMatches() {
-  try {
-    const res = await fetch(
-      `https://api.soccerdataapi.com/livescores/?auth_token=${SOCCERDATA_KEY}`,
-      { headers: { "Content-Type": "application/json", "Accept-Encoding": "gzip" } }
-    );
-    const data = await res.json();
-    if (!data.results || data.results.length === 0) return [];
-
-    return data.results
-      .filter(m => m.home && m.away)
-      .map(m => ({
-        home: m.home?.name || "Home",
-        away: m.away?.name || "Away",
-        league: m.competition?.name || "Unknown",
-        commence_time: m.time?.starting_at || new Date().toISOString(),
-      }));
-  } catch (err) {
-    console.warn("⚠️ SoccerData fehlgeschlagen:", err.message);
-    return [];
-  }
-}
-
-// -------------------------------------------------
-// 2️⃣ Hole Spiele aus TheOddsAPI (Fallback)
-// -------------------------------------------------
-async function getOddsAPIMatches() {
+// -----------------------------
+// API: /api/games
+// -----------------------------
+app.get("/api/games", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
+  const date = req.query.date || today;
+  const leaguesParam = req.query.leagues
+    ? req.query.leagues.split(",")
+    : LEAGUES.map(l => l.key);
+
+  const cacheId = cacheKey(date, leaguesParam);
+  if (CACHE[cacheId]) return res.json(CACHE[cacheId]);
+
   const games = [];
 
-  for (const league of LEAGUES) {
+  for (const league of LEAGUES.filter(l => leaguesParam.includes(l.key))) {
     try {
       const url = `https://api.the-odds-api.com/v4/sports/${league.key}/odds?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso`;
       const response = await fetch(url);
       if (!response.ok) continue;
+
       const data = await response.json();
+      if (!Array.isArray(data)) continue;
 
       for (const g of data) {
-        if (!g.commence_time?.startsWith(today)) continue;
-        const homeTeam = g.home_team;
-        const awayTeam = g.away_team;
+        if (!g.commence_time?.startsWith(date)) continue;
+        const home = g.home_team;
+        const away = g.away_team;
         const book = g.bookmakers?.[0];
         if (!book) continue;
 
@@ -132,80 +133,131 @@ async function getOddsAPIMatches() {
         const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
 
         const odds = {
-          home: h2h.find(o => o.name === homeTeam)?.price || 0,
+          home: h2h.find(o => o.name === home)?.price || 0,
           draw: h2h.find(o => o.name === "Draw")?.price || 0,
-          away: h2h.find(o => o.name === awayTeam)?.price || 0,
+          away: h2h.find(o => o.name === away)?.price || 0,
           over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
           under25: totals.find(o => o.name === "Under" && o.point === 2.5)?.price || 0,
         };
         if (!odds.home || !odds.away) continue;
 
+        const baseHome = league.baseXG[0];
+        const baseAway = league.baseXG[1];
+
         const impliedHome = 1 / odds.home;
         const impliedAway = 1 / odds.away;
         const ratio = impliedHome / (impliedHome + impliedAway);
 
-        const baseHome = league.baseXG[0];
-        const baseAway = league.baseXG[1];
-        const homeXG = Math.max(0.1, baseHome + (ratio - 0.5) * 0.8);
-        const awayXG = Math.max(0.1, baseAway - (ratio - 0.5) * 0.8);
+        const homeXG = Math.max(0.1, baseHome + (ratio - 0.5) * 0.9);
+        const awayXG = Math.max(0.05, baseAway - (ratio - 0.5) * 0.9);
 
-        const mat = scoreMatrix(homeXG, awayXG);
-        const { home, draw, away } = probsFromMatrix(mat);
-        const over25 = 1 - probTotalLeK(mat, 2);
-        const btts = calcBTTS(homeXG, awayXG);
+        const { mat } = scoreMatrix(homeXG, awayXG);
+        const scoreProbs = probsFromMatrix(mat);
+        const homeProb = scoreProbs.home;
+        const drawProb = scoreProbs.draw;
+        const awayProb = scoreProbs.away;
+        const over25Prob = 1 - probTotalLeK(mat, 2);
+        const bttsProb = calcBTTS(homeXG, awayXG);
 
-        const value = {
-          home: odds.home * home - 1,
-          draw: odds.draw * draw - 1,
-          away: odds.away * away - 1,
-          over25: odds.over25 * over25 - 1,
-          under25: odds.under25 * (1 - over25) - 1,
-          btts,
+        const sum1x2 = homeProb + drawProb + awayProb;
+        const prob = {
+          home: homeProb / sum1x2,
+          draw: drawProb / sum1x2,
+          away: awayProb / sum1x2,
+          over25: over25Prob,
+          under25: 1 - over25Prob,
+          btts: bttsProb,
         };
 
+        const value = {
+          home: prob.home * odds.home - 1,
+          draw: prob.draw * odds.draw - 1,
+          away: prob.away * odds.away - 1,
+          over25: prob.over25 * odds.over25 - 1,
+          under25: prob.under25 * odds.under25 - 1,
+          btts: 0,
+        };
+
+        const bttsMarket = book.markets?.find(m => m.key === "bothteams_to_score");
+        if (bttsMarket) {
+          const outcomeYes = bttsMarket.outcomes.find(o => /yes/i.test(o.name));
+          if (outcomeYes && outcomeYes.price) value.btts = prob.btts * outcomeYes.price - 1;
+        }
+
+        const valueEntries = [
+          { key: "home", val: value.home },
+          { key: "draw", val: value.draw },
+          { key: "away", val: value.away },
+          { key: "over25", val: value.over25 },
+          { key: "under25", val: value.under25 },
+          { key: "btts", val: value.btts },
+        ].sort((a, b) => b.val - a.val);
+        const bestValue = valueEntries[0];
+        const isValue = bestValue.val > 0;
+
         games.push({
-          home: homeTeam,
-          away: awayTeam,
+          home,
+          away,
           league: league.name,
           commence_time: g.commence_time,
+          homeLogo: `https://placehold.co/48x36?text=${encodeURIComponent(home[0]||"H")}`,
+          awayLogo: `https://placehold.co/48x36?text=${encodeURIComponent(away[0]||"A")}`,
           odds,
-          prob: { home, draw, away, over25, btts },
+          prob,
           value,
-          homeXG,
-          awayXG,
+          bestValueMarket: bestValue.key,
+          bestValueAmount: +bestValue.val.toFixed(4),
+          isValue,
+          homeXG: +homeXG.toFixed(2),
+          awayXG: +awayXG.toFixed(2),
+          totalXG: +(homeXG + awayXG).toFixed(2),
         });
       }
-    } catch (e) {
-      console.warn(`⚠️ Fehler bei ${league.name}:`, e.message);
+    } catch (err) {
+      console.error(`Fehler ${league.name}:`, err.message);
     }
   }
 
-  return games;
-}
-
-// -------------------------------------------------
-// 3️⃣ API-Endpoint
-// -------------------------------------------------
-app.get("/api/games", async (req, res) => {
-  let games = await getSoccerDataMatches();
-  if (games.length === 0) {
-    console.log("ℹ️ Keine Spiele bei SoccerData – wechsle zu TheOddsAPI");
-    games = await getOddsAPIMatches();
+  // -----------------------------
+  // Top-Listen
+  // -----------------------------
+  function topNByProb(arr, keyPath, n = 5) {
+    const [root, sub] = keyPath.split(".");
+    return [...arr]
+      .filter(g => g[root] && typeof g[root][sub] === "number")
+      .sort((a, b) => b[root][sub] - a[root][sub])
+      .slice(0, n);
   }
 
-  if (!games.length) {
-    return res.json({ response: [], message: "Keine Spiele gefunden." });
+  function topNByValue(arr, marketKey, n = 5) {
+    return [...arr]
+      .filter(g => typeof g.value[marketKey] === "number")
+      .sort((a, b) => b.value[marketKey] - a.value[marketKey])
+      .slice(0, n);
   }
 
-  const top7 = games.slice(0, 7);
-  const topOver = [...games].sort((a, b) => (b.prob?.over25 || 0) - (a.prob?.over25 || 0)).slice(0, 5);
-  const topBTTS = [...games].sort((a, b) => (b.prob?.btts || 0) - (a.prob?.btts || 0)).slice(0, 5);
+  const result = {
+    response: games,
+    topByProb: {
+      home: topNByProb(games, "prob.home"),
+      draw: topNByProb(games, "prob.draw"),
+      over25: topNByProb(games, "prob.over25"),
+      btts: topNByProb(games, "prob.btts"),
+    },
+    topByValue: {
+      home: topNByValue(games, "home"),
+      draw: topNByValue(games, "draw"),
+      over25: topNByValue(games, "over25"),
+      btts: topNByValue(games, "btts"),
+    },
+  };
 
-  res.json({ response: games, top7, topOver, topBTTS });
+  CACHE[cacheId] = result;
+  res.json(result);
 });
 
-// -------------------------------------------------
+// -----------------------------
 // Static + Start
-// -------------------------------------------------
+// -----------------------------
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.listen(PORT, () => console.log(`✅ Server läuft auf Port ${PORT}`));
