@@ -29,42 +29,63 @@ async function loadMatches() {
     }
 
     // -----------------------------
-    // Top 5 nach Value
+    // Kombinierte Top-Liste nach Value
     // -----------------------------
-    function top5Value(market) {
-      return [...games]
-        .filter(g => g.value && typeof g.value[market] === "number")
-        .sort((a, b) => b.value[market] - a.value[market])
-        .slice(0, 5);
-    }
+    const combinedTop = [];
 
-    const markets = ["home", "draw", "away", "over25", "btts"];
-    markets.forEach(market => {
-      const topGames = top5Value(market);
-      if (topGames.length) {
-        const section = document.createElement("div");
-        section.className = "top-section mb-4";
-        section.innerHTML = `<h2>🏆 Top 5 Value: ${market.toUpperCase()}</h2>
-          <ul>
-            ${topGames
-              .map(g => {
-                const trend =
-                  market === "over25"
-                    ? g.prob.over25 > 50 ? "Over 2.5" : "Under 2.5"
-                    : market === "btts"
-                    ? g.prob.btts > 50 ? "BTTS: Ja" : "BTTS: Nein"
-                    : market === "home"
-                    ? "Heimsieg"
-                    : market === "away"
-                    ? "Auswärtssieg"
-                    : "Unentschieden";
-                return `<li>${g.home} vs ${g.away} → ${trend} | Value: ${g.value[market].toFixed(2)} | Wahrscheinlichkeit: ${(g.prob[market]*100).toFixed(1)}%</li>`;
-              })
-              .join("")}
-          </ul>`;
-        matchList.appendChild(section);
-      }
+    games.forEach(g => {
+      // Märkte: home, draw, away, over25, btts
+      const markets = ["home", "draw", "away", "over25", "btts"];
+      markets.forEach(market => {
+        if (g.value[market] > 0) {
+          const trend =
+            market === "over25"
+              ? g.prob.over25 > 50 ? "Over 2.5" : "Under 2.5"
+              : market === "btts"
+              ? g.prob.btts > 50 ? "BTTS: Ja" : "BTTS: Nein"
+              : market === "home"
+              ? "Heimsieg"
+              : market === "away"
+              ? "Auswärtssieg"
+              : "Unentschieden";
+
+          combinedTop.push({
+            home: g.home,
+            away: g.away,
+            league: g.league,
+            commence_time: g.commence_time,
+            market,
+            trend,
+            value: g.value[market],
+            probability: +(g.prob[market !== "btts" ? market : "btts"] * 100).toFixed(1),
+          });
+        }
+      });
     });
+
+    // Sortiere nach Value absteigend und nehme Top 10
+    combinedTop.sort((a, b) => b.value - a.value);
+    const top10Combined = combinedTop.slice(0, 10);
+
+    // -----------------------------
+    // Anzeige kombinierte Top-Liste
+    // -----------------------------
+    if (top10Combined.length) {
+      const topSection = document.createElement("div");
+      topSection.className = "top-section mb-4";
+      topSection.innerHTML = `<h2>🔥 Top 10 Value & Chancen des Tages</h2>
+        <ul>
+          ${top10Combined
+            .map(
+              g =>
+                `<li>${g.home} vs ${g.away} → <b>${g.trend}</b> | Value: ${g.value.toFixed(
+                  2
+                )} | Wahrscheinlichkeit: ${g.probability}% | Liga: ${g.league}</li>`
+            )
+            .join("")}
+        </ul>`;
+      matchList.appendChild(topSection);
+    }
 
     // -----------------------------
     // Matchkarten
