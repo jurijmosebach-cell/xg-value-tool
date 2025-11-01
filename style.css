@@ -1,177 +1,214 @@
+/* -----------------------------
+   Allgemein
+----------------------------- */
 body {
   font-family: Arial, sans-serif;
-  background-color: #f9f9f9;
-  color: #1a202c;
+  background-color: #f9fafb; /* helles Grau */
+  color: #111827;
   margin: 0;
-  padding: 1rem;
+  padding: 20px;
 }
 
 h1 {
   text-align: center;
-  margin-bottom: 1.5rem;
-  font-size: 2rem;
+  margin-bottom: 20px;
 }
 
-.top-section {
-  background: #e2e8f0;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin-bottom: 1rem;
+/* -----------------------------
+   Status
+----------------------------- */
+#status {
+  text-align: center;
+  margin-bottom: 15px;
+  font-weight: bold;
+  color: #1e40af;
 }
 
-.top-section h2 {
-  margin-bottom: 0.5rem;
-  font-size: 1.25rem;
-}
-
-.top-section ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-.top-section li {
-  padding: 0.25rem 0;
-}
-
+/* -----------------------------
+   Match-Karten
+----------------------------- */
 .match-card {
-  background: #ffffff;
-  border-radius: 0.75rem;
-  padding: 1rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  display: block;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+  transition: transform 0.1s;
 }
 
+.match-card:hover {
+  transform: translateY(-2px);
+}
+
+/* -----------------------------
+   Match Header (Teams)
+----------------------------- */
 .match-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
 }
 
 .team {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
 }
 
 .team img {
   width: 48px;
   height: 36px;
-  object-fit: cover;
-  border-radius: 0.25rem;
+  object-fit: contain;
+  margin-right: 6px;
 }
 
 .team-name {
-  font-weight: 600;
+  font-weight: bold;
 }
 
 .team-xg {
-  font-size: 0.75rem;
-  color: #4a5568;
+  font-size: 0.85em;
+  color: #6b7280;
 }
 
+/* -----------------------------
+   Odds Text
+----------------------------- */
+.text-amber-700 {
+  color: #b45309;
+  font-size: 0.9em;
+  margin-bottom: 4px;
+}
+
+/* -----------------------------
+   Wahrscheinlichkeitsbalken
+----------------------------- */
 .bar-container {
-  background: #edf2f7;
-  height: 1.5rem;
-  border-radius: 0.375rem;
-  overflow: hidden;
   position: relative;
-  margin-bottom: 0.25rem;
+  background-color: #e5e7eb;
+  border-radius: 6px;
+  height: 20px;
+  margin-bottom: 6px;
+  overflow: hidden;
 }
 
 .bar-fill {
   height: 100%;
-  text-align: right;
-  padding-right: 0.25rem;
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: bold;
-  line-height: 1.5rem;
+  border-radius: 6px;
 }
 
 .bar-home {
-  background: #3b82f6;
+  background-color: #3b82f6; /* Blau */
 }
 
 .bar-over {
-  background: #f59e0b;
+  background-color: #f59e0b; /* Orange */
 }
 
 .bar-btts-yes {
-  background: #10b981;
+  background-color: #10b981; /* Grün */
 }
 
 .bar-text {
   position: absolute;
-  left: 0.5rem;
   top: 0;
-  height: 100%;
-  line-height: 1.5rem;
-  font-size: 0.75rem;
-  color: #1a202c;
+  left: 6px;
+  font-size: 0.75em;
+  color: #111827;
+  line-height: 20px;
 }
 
+/* -----------------------------
+   Trend-Anzeige
+----------------------------- */
 .trend {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  font-weight: bold;
+  font-size: 0.85em;
 }
 
-.trend-home,
-.trend-over,
-.trend-btts-yes {
-  background: #3b82f6;
-  color: #fff;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+.trend-home {
+  color: #3b82f6;
 }
 
-.trend-away,
-.trend-under,
-.trend-btts-no {
-  background: #ef4444;
-  color: #fff;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+.trend-away {
+  color: #ef4444;
 }
 
 .trend-draw {
-  background: #fbbf24;
-  color: #1a202c;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.trend-over {
+  color: #f59e0b;
+}
+
+.trend-under {
+  color: #f97316;
+}
+
+.trend-btts-yes {
+  color: #10b981;
+}
+
+.trend-btts-no {
+  color: #6b7280;
+}
+
+/* -----------------------------
+   Empfehlung
+----------------------------- */
+.text-center {
+  text-align: center;
+}
+
+.font-semibold {
   font-weight: 600;
 }
 
-/* Buttons & Inputs */
-#refresh {
-  background: #3b82f6;
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  font-weight: 600;
+.text-blue-600 {
+  color: #2563eb;
 }
 
-#refresh:hover {
-  background: #2563eb;
+/* -----------------------------
+   Top Sektionen
+----------------------------- */
+.top-section {
+  background-color: #f3f4f6;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
 }
 
-input[type="date"],
+.top-section h2 {
+  margin-bottom: 8px;
+  font-size: 1.1em;
+}
+
+.top-section ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.top-section li {
+  margin-bottom: 4px;
+  font-size: 0.9em;
+}
+
+/* -----------------------------
+   Formular-Controls
+----------------------------- */
+input, select, button {
+  font-size: 0.9em;
+  margin-right: 6px;
+  margin-bottom: 6px;
+}
+
 select {
-  border: 1px solid #cbd5e1;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-}
-
-#status {
-  margin-bottom: 1rem;
-  font-weight: 500;
+  min-width: 180px;
 }
