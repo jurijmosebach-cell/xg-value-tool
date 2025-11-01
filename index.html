@@ -6,6 +6,29 @@
     <title>xG Odds Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css" />
+    <style>
+      body {
+        background: #f4f6fa;
+        color: #1e293b;
+        font-family: "Inter", sans-serif;
+      }
+      h1 {
+        text-align: center;
+        margin: 1rem 0;
+        font-size: 1.8rem;
+        color: #0f172a;
+      }
+      button {
+        background-color: #3b82f6;
+        color: white;
+        padding: 0.4rem 1rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+      }
+      button:hover {
+        background-color: #2563eb;
+      }
+    </style>
   </head>
   <body>
     <h1>⚽ xG Odds Dashboard</h1>
@@ -15,12 +38,7 @@
       <input type="date" id="match-date" class="text-black rounded px-2 py-1" />
 
       <label for="league-select" class="font-medium">🏆 Ligen:</label>
-      <select
-        id="league-select"
-        multiple
-        size="6"
-        class="text-black rounded px-2 py-1"
-      >
+      <select id="league-select" multiple size="6" class="text-black rounded px-2 py-1">
         <option value="soccer_epl">Premier League</option>
         <option value="soccer_germany_bundesliga">Bundesliga</option>
         <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
@@ -34,8 +52,10 @@
       <button id="refresh">🔄 Spiele laden</button>
     </div>
 
-    <div id="status">Bitte Datum & Ligen auswählen, dann „Spiele laden“ drücken.</div>
-    <div id="match-list"></div>
+    <div id="status" class="text-center mb-3 text-gray-700">
+      Bitte Datum & Ligen auswählen, dann „Spiele laden“ drücken.
+    </div>
+    <div id="match-list" class="max-w-5xl mx-auto"></div>
 
     <script src="app.js"></script>
   </body>
