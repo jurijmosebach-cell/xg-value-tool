@@ -7,8 +7,25 @@ const leagueSelect = document.getElementById("league-select");
 const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
 
-// Lade Spiele
 refreshBtn.addEventListener("click", loadMatches);
+
+function renderTop5Section(title, games, marketKey, trendFunc) {
+  if (!games || games.length === 0) return '';
+  return `
+    <div class="top-section mb-4 p-3 bg-green-50 rounded">
+      <h2 class="text-lg font-bold mb-2">${title}</h2>
+      <ul class="list-disc pl-5">
+        ${games
+          .map(g => {
+            const trend = trendFunc(g);
+            const valueTag = g.isValue ? "💎" : "";
+            return `<li>${g.home} vs ${g.away} (${g.league}) → ${trend} | ${(g.prob).toFixed(1)}% ${valueTag}</li>`;
+          })
+          .join('')}
+      </ul>
+    </div>
+  `;
+}
 
 async function loadMatches() {
   const date = dateInput.value;
@@ -22,37 +39,33 @@ async function loadMatches() {
 
   try {
     const res = await fetch(`/api/games?date=${date}&leagues=${leagues.join(",")}`);
-    const { response: games, topByProb, topByValue } = await res.json();
+    const { response: games, topByValue } = await res.json();
 
     if (!games || games.length === 0) {
       statusDiv.textContent = "Keine Spiele gefunden.";
       return;
     }
 
-    // Top-7 Siegwahrscheinlichkeit
-    const top7 = [...games]
-      .map(g => {
-        const best =
-          g.prob.home > g.prob.away && g.prob.home > g.prob.draw
-            ? { type: "1", val: g.prob.home }
-            : g.prob.away > g.prob.home && g.prob.away > g.prob.draw
-            ? { type: "2", val: g.prob.away }
-            : { type: "X", val: g.prob.draw };
-        return { ...g, best };
-      })
-      .sort((a, b) => b.best.val - a.best.val)
-      .slice(0, 7);
+    // Top-5 Value Sections
+    const top1X2 = [
+      ...topByValue.home,
+      ...topByValue.draw,
+      ...topByValue.away
+    ].sort((a,b) => b.value - a.value).slice(0,5);
+    const topOver25 = topByValue.over25.slice(0,5);
+    const topBTTS = topByValue.btts.slice(0,5);
 
-    const topSection = document.createElement("div");
-    topSection.className = "top-section mb-6 p-3 bg-blue-50 rounded";
-    topSection.innerHTML = `<h2 class="text-xl font-bold mb-2">🏅 Top 7 Siegwahrscheinlichkeiten</h2>
-      <ul>${top7
-        .map(
-          g =>
-            `<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> mit ${(g.best.val * 100).toFixed(1)}%</li>`
-        )
-        .join("")}</ul>`;
-    matchList.appendChild(topSection);
+    const topSectionsHTML = `
+      ${renderTop5Section("🏆 Top 5 Value 1/X/2", top1X2, null, g => {
+        if (g.bestValueMarket === "home") return "Heimsieg";
+        if (g.bestValueMarket === "draw") return "Unentschieden";
+        if (g.bestValueMarket === "away") return "Auswärtssieg";
+        return "";
+      })}
+      ${renderTop5Section("⚡ Top 5 Value Over 2,5", topOver25, "over25", g => g.prob>50 ? "Over 2,5" : "Under 2,5")}
+      ${renderTop5Section("🔥 Top 5 Value BTTS", topBTTS, "btts", g => g.prob>50 ? "BTTS Ja" : "BTTS Nein")}
+    `;
+    matchList.innerHTML = topSectionsHTML;
 
     // Spielekarten
     games.forEach(g => {
