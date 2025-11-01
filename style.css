@@ -1,6 +1,6 @@
 /* ===== Global ===== */
 body {
-  background: #f5f6fa; /* heller Hintergrund */
+  background: #f5f6fa;
   color: #1e272e;
   font-family: 'Segoe UI', Arial, sans-serif;
   margin: 0;
@@ -114,14 +114,16 @@ button:hover {
 .bar-fill {
   position: absolute;
   height: 100%;
-  left: 0; top: 0;
+  left: 0;
+  top: 0;
   border-radius: 10px;
+  width: 0; /* Startwert für Animation */
+  transition: width 1s ease-in-out; /* Animation */
 }
 
 .bar-home { background: #00a8ff; }
 .bar-over { background: #9c88ff; }
 .bar-btts-yes { background: #e1b12c; }
-.bar-player { background: #44bd32; }
 
 .bar-text {
   position: absolute;
