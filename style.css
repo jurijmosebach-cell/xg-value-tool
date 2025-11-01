@@ -1,14 +1,13 @@
-/* 🌑 Global Dark Theme */
 body {
   font-family: "Inter", sans-serif;
-  background-color: #0f172a;
-  color: #f1f5f9;
+  background-color: #f1f5f9; /* heller Hintergrund */
+  color: #0f172a;
   margin: 0;
   padding: 20px;
 }
 
 h1 {
-  color: #38bdf8;
+  color: #2563eb;
   text-align: center;
   margin-bottom: 20px;
 }
@@ -23,7 +22,6 @@ button {
   cursor: pointer;
   transition: all 0.2s ease;
 }
-
 button:hover {
   background-color: #1d4ed8;
   transform: scale(1.05);
@@ -31,31 +29,28 @@ button:hover {
 
 #status {
   margin: 10px 0 20px;
-  color: #facc15;
+  color: #ca8a04;
   text-align: center;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-/* 📅 Input + Select Styling */
 input[type="date"],
 select {
-  background-color: #1e293b;
-  color: #f1f5f9;
-  border: 1px solid #334155;
+  background-color: #e2e8f0;
+  color: #1e293b;
+  border: 1px solid #94a3b8;
   border-radius: 10px;
   padding: 6px 10px;
   font-size: 14px;
   outline: none;
   transition: all 0.2s;
 }
-
 input[type="date"]:focus,
 select:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 4px #38bdf8;
+  border-color: #2563eb;
+  box-shadow: 0 0 4px #2563eb;
 }
 
-/* ⚽ Match Cards */
 #match-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -63,24 +58,16 @@ select:focus {
 }
 
 .match-card {
-  background-color: #1e293b;
+  background-color: #ffffff;
   border-radius: 16px;
   padding: 20px;
-  border: 1px solid #334155;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
 }
-
 .match-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
-}
-
-/* 🧱 Team Layout */
-.match-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .team {
@@ -88,40 +75,34 @@ select:focus {
   align-items: center;
   gap: 10px;
 }
-
 .team img {
   width: 42px;
   height: 42px;
   border-radius: 50%;
 }
-
 .team-name {
   font-weight: 700;
-  color: #f8fafc;
+  color: #0f172a;
 }
-
 .team-xg {
-  color: #94a3b8;
+  color: #475569;
   font-size: 13px;
 }
 
-/* 🎯 Probability Bars */
 .bar-container {
   position: relative;
   height: 24px;
   border-radius: 12px;
   overflow: hidden;
-  background-color: #334155;
+  background-color: #e2e8f0;
   margin-bottom: 8px;
 }
-
 .bar-fill {
   height: 100%;
   position: absolute;
   top: 0;
   left: 0;
 }
-
 .bar-text {
   position: absolute;
   width: 100%;
@@ -132,12 +113,10 @@ select:focus {
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  color: #f8fafc;
+  color: #0f172a;
   font-size: 13px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-/* Farbverläufe für verschiedene Balken */
 .bar-home {
   background: linear-gradient(90deg, #22c55e, #16a34a);
 }
@@ -157,16 +136,14 @@ select:focus {
   background: linear-gradient(90deg, #38bdf8, #0ea5e9);
 }
 .bar-btts-no {
-  background: linear-gradient(90deg, #64748b, #475569);
+  background: linear-gradient(90deg, #94a3b8, #64748b);
 }
 
-/* 🧩 Tendenzen */
 .trend {
   text-align: center;
   margin-top: 8px;
   font-size: 14px;
 }
-
 .trend span {
   display: inline-block;
   margin: 2px 6px;
@@ -174,32 +151,48 @@ select:focus {
   border-radius: 8px;
   font-weight: 600;
 }
-
 .trend-home {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+  color: #15803d;
 }
 .trend-away {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
 }
 .trend-draw {
-  background: rgba(250, 204, 21, 0.2);
-  color: #facc15;
+  background: rgba(250, 204, 21, 0.15);
+  color: #a16207;
 }
 .trend-over {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+  color: #15803d;
 }
 .trend-under {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
 }
 .trend-btts-yes {
-  background: rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  color: #0ea5e9;
 }
 .trend-btts-no {
-  background: rgba(100, 116, 139, 0.2);
-  color: #94a3b8;
+  background: rgba(100, 116, 139, 0.15);
+  color: #475569;
+}
+
+.top-section {
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 15px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+  margin-bottom: 25px;
+}
+.top-section h2 {
+  color: #2563eb;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.top-section li {
+  margin-bottom: 6px;
 }
