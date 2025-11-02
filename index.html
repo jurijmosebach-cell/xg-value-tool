@@ -2,33 +2,51 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>⚽ xG Odds Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header><h1>⚽ xG Odds Dashboard</h1></header>
+  <header>
+    <h1>⚽ xG Odds Dashboard</h1>
+  </header>
 
-  <div class="controls">
-    <label>📅 Datum: <input type="date" id="match-date"></label>
-    <label>🏆 Ligen:
-      <select id="league-select" multiple size="8">
-        <option value="soccer_epl">Premier League</option>
-        <option value="soccer_germany_bundesliga">Bundesliga</option>
-        <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
-        <option value="soccer_spain_la_liga">La Liga</option>
-        <option value="soccer_italy_serie_a">Serie A</option>
-        <option value="soccer_france_ligue_one">Ligue 1</option>
-        <option value="soccer_netherlands_eredivisie">Eredivisie</option>
-        <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
-      </select>
-    </label>
-    <button id="refresh">🔄 Spiele laden</button>
+  <!-- Filter Section -->
+  <div class="filter-section" style="margin:20px; text-align:center;">
+    <label for="match-date" class="font-medium">📅 Datum:</label>
+    <input type="date" id="match-date" />
+
+    <label for="league-select" class="font-medium">🏆 Ligen:</label>
+    <select id="league-select" multiple size="10">
+      <option value="soccer_epl">Premier League</option>
+      <option value="soccer_germany_bundesliga">Bundesliga</option>
+      <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
+      <option value="soccer_spain_la_liga">La Liga</option>
+      <option value="soccer_italy_serie_a">Serie A</option>
+      <option value="soccer_france_ligue_one">Ligue 1</option>
+      <option value="soccer_netherlands_eredivisie">Eredivisie</option>
+      <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
+      <option value="soccer_turkey_super_league">Turkish Süper Lig</option>
+      <option value="soccer_usa_mls">MLS (USA)</option>
+      <option value="soccer_uefa_champs_league">UEFA Champions League</option>
+      <option value="soccer_uefa_europa_conference_league">UEFA Europa Conference League</option>
+      <option value="soccer_uefa_champs_league_qualification">Champions League Qualification</option>
+    </select>
+
+    <button id="refresh" style="margin-left:10px; padding:6px 12px; border-radius:6px; background:#3b82f6; color:white; border:none;">🔄 Spiele laden</button>
   </div>
 
-  <div id="status" class="text-center"></div>
-  <div id="match-list"></div>
+  <!-- Status -->
+  <div id="status"></div>
+
+  <!-- Top-Listen -->
+  <div id="match-list" class="space-y-6"></div>
 
   <script src="app.js"></script>
+  <script>
+    // Datum standardmäßig auf heute
+    const dateInput = document.getElementById("match-date");
+    dateInput.value = new Date().toISOString().slice(0,10);
+  </script>
 </body>
 </html>
