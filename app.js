@@ -4,11 +4,12 @@ const statusDiv = document.getElementById("status");
 const dateInput = document.getElementById("match-date");
 const leagueSelect = document.getElementById("league-select");
 
-refreshBtn.addEventListener("click", loadMatches);
-
 // Standard-Datum = heute
 const today = new Date().toISOString().slice(0, 10);
 dateInput.value = today;
+
+// Klick auf "Spiele laden"
+refreshBtn.addEventListener("click", loadMatches);
 
 async function loadMatches() {
   const date = dateInput.value;
@@ -143,23 +144,28 @@ async function loadMatches() {
           </div>
         </div>
 
-        <div class="text-amber-700 text-sm mb-2">
-          1: ${g.odds.home.toFixed(2)} | X: ${g.odds.draw.toFixed(2)} | 2: ${g.odds.away.toFixed(2)}
-        </div>
-
+        <!-- Balken: Heim / Draw / Auswärts -->
         <div class="bar-container mb-2">
           <div class="bar-fill bar-home" style="width:${homeVal}%"></div>
-          <div class="bar-text">1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%</div>
+          <div class="bar-fill bar-draw" style="width:${drawVal}%"></div>
+          <div class="bar-fill bar-away" style="width:${awayVal}%"></div>
+          <div class="bar-text">
+            1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%
+          </div>
         </div>
 
         <div class="bar-container mb-2">
           <div class="bar-fill bar-over" style="width:${overVal}%"></div>
-          <div class="bar-text">Over:${overVal.toFixed(1)}% | Under:${(100-overVal).toFixed(1)}%</div>
+          <div class="bar-text">
+            Over:${overVal.toFixed(1)}% | Under:${(100-overVal).toFixed(1)}%
+          </div>
         </div>
 
         <div class="bar-container">
           <div class="bar-fill bar-btts-yes" style="width:${bttsVal}%"></div>
-          <div class="bar-text">BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100-bttsVal).toFixed(1)}%</div>
+          <div class="bar-text">
+            BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100-bttsVal).toFixed(1)}%
+          </div>
         </div>
 
         <div class="trend">
