@@ -1,144 +1,212 @@
 <!DOCTYPE html>
 <html lang="de">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>xG Odds Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body class="bg-gray-50 text-gray-800 min-h-screen">
-    <div class="container mx-auto p-4">
-      <h1 class="text-3xl font-bold text-center mb-6">⚽ xG Odds Dashboard</h1>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⚽ xG & Value Dashboard</title>
+  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/535/535239.png" />
+  <link rel="stylesheet" href="style.css" />
 
-      <!-- Filter Section -->
-      <div class="flex flex-wrap justify-center items-center gap-3 mb-6">
-        <label for="match-date" class="font-medium">📅 Datum:</label>
-        <input type="date" id="match-date" class="text-black rounded px-2 py-1" />
+  <style>
+    /* -------------------------------
+       🎨 Grunddesign (hell, clean)
+    --------------------------------*/
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --text: #1f2937;
+      --text-light: #6b7280;
+      --accent: #2563eb;
+      --accent-light: #3b82f6;
+    }
 
-        <label for="league-select" class="font-medium">🏆 Ligen:</label>
-        <select
-          id="league-select"
-          multiple
-          size="8"
-          class="text-black rounded px-2 py-1"
-        >
-          <option value="soccer_epl">Premier League</option>
-          <option value="soccer_germany_bundesliga">Bundesliga</option>
-          <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
-          <option value="soccer_spain_la_liga">La Liga</option>
-          <option value="soccer_italy_serie_a">Serie A</option>
-          <option value="soccer_france_ligue_one">Ligue 1</option>
-          <option value="soccer_netherlands_eredivisie">Eredivisie</option>
-          <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
-          <option value="soccer_turkey_super_league">Turkey Super League</option>
-          <option value="soccer_uefa_europa_conference_league">UEFA Europa Conference League</option>
-          <option value="soccer_uefa_champs_league">UEFA Champions League</option>
-          <option value="soccer_uefa_champs_league_qualification">Champions League Qualification</option>
-          <option value="soccer_usa_mls">MLS (USA)</option>
-        </select>
+    body {
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+    }
 
-        <button id="refresh" class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">🔄 Spiele laden</button>
-      </div>
+    header {
+      background: linear-gradient(90deg, var(--accent), var(--accent-light));
+      color: white;
+      padding: 1.2rem 1rem;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
 
-      <!-- Status -->
-      <div id="status" class="text-center mb-6 font-medium"></div>
+    header h1 {
+      margin: 0;
+      font-size: 1.6rem;
+      font-weight: 600;
+    }
 
-      <!-- Top Lists -->
-      <div id="match-list" class="space-y-6">
-        <!-- JS fügt hier Top 7, Top Value, Over 2.5, BTTS und Spiele ein -->
-      </div>
+    main {
+      max-width: 1200px;
+      margin: 1.5rem auto;
+      padding: 0 1rem;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-header h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+    }
+
+    .section-header p {
+      color: var(--text-light);
+      font-size: 0.9rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      font-size: 1.1rem;
+      color: var(--text-light);
+    }
+
+    /* -------------------------------
+       🧾 Spielekarten
+    --------------------------------*/
+    .game-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1rem;
+    }
+
+    .game-card {
+      background: var(--card);
+      border-radius: 1rem;
+      padding: 1rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+    }
+
+    .game-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
+
+    .team {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+    }
+
+    .team img {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+    }
+
+    .vs {
+      font-weight: bold;
+      color: var(--text-light);
+    }
+
+    .league {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin: 0.3rem 0 0.6rem 0;
+    }
+
+    .xg-line, .odds, .prob, .value {
+      font-size: 0.9rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .odds div {
+      display: inline-block;
+      margin-right: 0.4rem;
+    }
+
+    .prob small, .value small {
+      color: var(--text-light);
+    }
+
+    .value b {
+      color: var(--text);
+    }
+
+    /* -------------------------------
+       💰 Top 5 Value Bets
+    --------------------------------*/
+    .top-section {
+      background: var(--card);
+      border-radius: 1rem;
+      padding: 1rem;
+      margin-top: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .top-section h2 {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+      color: var(--accent);
+    }
+
+    .top-section ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .top-section li {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0.4rem 0;
+    }
+
+    .top-section li:last-child {
+      border: none;
+    }
+
+    .text-green-600 {
+      color: #16a34a;
+    }
+
+    .text-red-500 {
+      color: #dc2626;
+    }
+
+    /* -------------------------------
+       📱 Responsives Design
+    --------------------------------*/
+    @media (max-width: 640px) {
+      .game-container {
+        grid-template-columns: 1fr;
+      }
+
+      header h1 {
+        font-size: 1.3rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>⚽ xG & Value Dashboard</h1>
+  </header>
+
+  <main>
+    <div id="match-list">
+      <div class="loading">⏳ Daten werden geladen...</div>
     </div>
+  </main>
 
-    <style>
-      /* Match Card */
-      .match-card {
-        background-color: #ffffff;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      }
+  <footer style="text-align:center; padding:1rem; color:#9ca3af; font-size:0.85rem;">
+    Made with ❤️ – Poisson xG Model © 2025
+  </footer>
 
-      .match-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .team {
-        display: flex;
-        align-items: center;
-      }
-
-      .team img {
-        width: 48px;
-        height: 36px;
-        margin-right: 0.5rem;
-      }
-
-      .bar-container {
-        position: relative;
-        background-color: #e5e7eb;
-        height: 24px;
-        border-radius: 0.25rem;
-        margin-bottom: 0.5rem;
-      }
-
-      .bar-fill {
-        height: 100%;
-        border-radius: 0.25rem;
-      }
-
-      .bar-home { background-color: #34d399; }
-      .bar-over { background-color: #60a5fa; }
-      .bar-btts-yes { background-color: #fbbf24; }
-
-      .bar-text {
-        position: absolute;
-        width: 100%;
-        text-align: center;
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: #111827;
-        top: 0;
-        line-height: 24px;
-      }
-
-      .trend span {
-        display: inline-block;
-        margin-right: 0.5rem;
-        padding: 0.2rem 0.5rem;
-        border-radius: 0.25rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-      }
-
-      .trend-home { background-color: #34d399; color: white; }
-      .trend-away { background-color: #f87171; color: white; }
-      .trend-draw { background-color: #facc15; color: black; }
-      .trend-over { background-color: #60a5fa; color: white; }
-      .trend-under { background-color: #93c5fd; color: black; }
-      .trend-btts-yes { background-color: #fbbf24; color: black; }
-      .trend-btts-no { background-color: #fde68a; color: black; }
-
-      /* Top Section Box */
-      .top-section {
-        background-color: #f3f4f6;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-      }
-      .top-section h2 {
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-      }
-      .top-section ul {
-        list-style: disc inside;
-        padding-left: 0;
-      }
-    </style>
-
-    <script src="app.js"></script>
-  </body>
+  <script src="app.js"></script>
+</body>
 </html>
