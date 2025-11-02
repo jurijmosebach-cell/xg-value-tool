@@ -1,269 +1,33 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>⚽ xG & Value Dashboard</title>
-  <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/535/535239.png" />
-
-  <style>
-    :root {
-      --bg: #f7fafc;
-      --card: #ffffff;
-      --text: #1e293b;
-      --text-light: #64748b;
-      --accent: #2563eb;
-      --accent-light: #60a5fa;
-    }
-
-    body {
-      font-family: "Inter", system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 0;
-    }
-
-    header {
-      background: linear-gradient(90deg, var(--accent), var(--accent-light));
-      color: white;
-      padding: 1.2rem;
-      text-align: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-
-    main {
-      max-width: 1100px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-    }
-
-    /* Filterbereich */
-    .filters {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 1rem;
-      background: var(--card);
-      border-radius: 1rem;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-      padding: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .filters label {
-      font-weight: 500;
-      color: var(--text-light);
-    }
-
-    input[type="date"], select {
-      border: 1px solid #d1d5db;
-      border-radius: 0.5rem;
-      padding: 0.4rem 0.6rem;
-      font-size: 0.9rem;
-      background: white;
-      color: var(--text);
-    }
-
-    button {
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 0.5rem;
-      padding: 0.5rem 1rem;
-      cursor: pointer;
-      font-weight: 600;
-      transition: 0.2s;
-    }
-
-    button:hover {
-      background: var(--accent-light);
-    }
-
-    /* Sektionen */
-    .top-section {
-      background: var(--card);
-      border-radius: 1rem;
-      padding: 1rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      margin-bottom: 1.5rem;
-    }
-
-    .top-section h2 {
-      font-size: 1.2rem;
-      color: var(--accent);
-      margin-bottom: 0.6rem;
-    }
-
-    .top-section ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    .top-section li {
-      border-bottom: 1px solid #e5e7eb;
-      padding: 0.4rem 0;
-    }
-
-    .top-section li:last-child {
-      border-bottom: none;
-    }
-
-    /* Spielekarten */
-    .match-card {
-      background: var(--card);
-      border-radius: 0.75rem;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-      padding: 1rem;
-      margin-bottom: 1rem;
-    }
-
-    .match-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.6rem;
-    }
-
-    .team {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .team img {
-      width: 30px;
-      height: 22px;
-      border-radius: 4px;
-    }
-
-    .league-tag {
-      background: #eff6ff;
-      color: #1d4ed8;
-      font-size: 0.75rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 0.5rem;
-    }
-
-    .bar {
-      position: relative;
-      background: #e5e7eb;
-      border-radius: 0.25rem;
-      height: 20px;
-      margin-top: 4px;
-      overflow: hidden;
-    }
-
-    .bar-fill {
-      height: 100%;
-      border-radius: 0.25rem;
-    }
-
-    .bar-home { background: #34d399; }
-    .bar-over { background: #60a5fa; }
-    .bar-btts { background: #fbbf24; }
-
-    .bar-text {
-      position: absolute;
-      top: 0;
-      width: 100%;
-      text-align: center;
-      font-size: 0.75rem;
-      color: #111827;
-      line-height: 20px;
-    }
-
-    .trend {
-      margin-top: 0.5rem;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-    }
-
-    .trend span {
-      padding: 0.2rem 0.5rem;
-      border-radius: 0.25rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .trend-home { background: #34d399; color: white; }
-    .trend-away { background: #f87171; color: white; }
-    .trend-draw { background: #facc15; color: black; }
-    .trend-over { background: #60a5fa; color: white; }
-    .trend-btts-yes { background: #fbbf24; color: black; }
-
-    .league-section {
-      margin-top: 2rem;
-    }
-
-    .league-section h3 {
-      margin-bottom: 0.6rem;
-      color: var(--text);
-      border-bottom: 2px solid #e5e7eb;
-      padding-bottom: 0.2rem;
-    }
-
-    #status {
-      text-align: center;
-      font-weight: 500;
-      margin-bottom: 1rem;
-      color: var(--text-light);
-    }
-
-    @media (max-width: 600px) {
-      .filters {
-        flex-direction: column;
-        align-items: center;
-      }
-      .filters select {
-        width: 90%;
-      }
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>⚽ xG Odds Dashboard</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <header>
-    <h1>⚽ xG & Value Dashboard</h1>
-  </header>
+  <header><h1>⚽ xG Odds Dashboard</h1></header>
 
-  <main>
-    <!-- Filter -->
-    <div class="filters">
-      <label>📅 Datum:
-        <input type="date" id="match-date" />
-      </label>
+  <div class="controls">
+    <label>📅 Datum: <input type="date" id="match-date"></label>
+    <label>🏆 Ligen:
+      <select id="league-select" multiple size="8">
+        <option value="soccer_epl">Premier League</option>
+        <option value="soccer_germany_bundesliga">Bundesliga</option>
+        <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
+        <option value="soccer_spain_la_liga">La Liga</option>
+        <option value="soccer_italy_serie_a">Serie A</option>
+        <option value="soccer_france_ligue_one">Ligue 1</option>
+        <option value="soccer_netherlands_eredivisie">Eredivisie</option>
+        <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
+      </select>
+    </label>
+    <button id="refresh">🔄 Spiele laden</button>
+  </div>
 
-      <label>🏆 Liga:
-        <select id="league-select" multiple size="6">
-          <option value="soccer_epl">Premier League</option>
-          <option value="soccer_germany_bundesliga">Bundesliga</option>
-          <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
-          <option value="soccer_spain_la_liga">La Liga</option>
-          <option value="soccer_italy_serie_a">Serie A</option>
-          <option value="soccer_france_ligue_one">Ligue 1</option>
-          <option value="soccer_netherlands_eredivisie">Eredivisie</option>
-          <option value="soccer_turkey_super_league">Süper Lig</option>
-          <option value="soccer_usa_mls">MLS</option>
-          <option value="soccer_uefa_champs_league">Champions League</option>
-        </select>
-      </label>
-
-      <button id="refresh">🔄 Spiele laden</button>
-    </div>
-
-    <!-- Statusanzeige -->
-    <div id="status">Bitte Datum und Liga wählen.</div>
-
-    <!-- Top Sektionen -->
-    <div id="match-list"></div>
-  </main>
-
-  <footer style="text-align:center; padding:1rem; color:#9ca3af; font-size:0.85rem;">
-    Made with ❤️ – Poisson xG Model © 2025
-  </footer>
+  <div id="status" class="text-center"></div>
+  <div id="match-list"></div>
 
   <script src="app.js"></script>
 </body>
