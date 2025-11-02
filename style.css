@@ -1,24 +1,178 @@
-body{margin:0;padding:0;font-family:Inter,sans-serif;background:#f7fafc;color:#1e293b;}
-header{width:100%;background:#fff;padding:10px 20px;border-bottom:1px solid #e2e8f0;position:sticky;top:0;z-index:10;}
-header h1{font-size:1.5rem;color:#1e40af;}
-.controls{display:flex;gap:10px;flex-wrap:wrap;padding:10px;}
-#match-list{width:95%;max-width:900px;margin:0 auto;}
-.match-card{background:#fff;border-radius:8px;padding:10px;margin:6px 0;box-shadow:0 2px 6px rgba(0,0,0,0.05);}
-.match-header{display:flex;justify-content:space-between;align-items:center;}
-.team{display:flex;align-items:center;}
-.team img{width:48px;height:36px;margin-right:6px;}
-.bar-container{position:relative;background:#e5e7eb;height:24px;border-radius:4px;margin-bottom:4px;}
-.bar-fill{height:100%;border-radius:4px;}
-.bar-home{background:#34d399;}
-.bar-over{background:#60a5fa;}
-.bar-btts-yes{background:#fbbf24;}
-.bar-text{position:absolute;width:100%;text-align:center;line-height:24px;font-size:0.75rem;font-weight:500;color:#111827;}
-.top-section{background:#f3f4f6;border-radius:8px;padding:10px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
-.top-section h2{font-size:1.2rem;margin-bottom:6px;}
-.trend-home{background:#34d399;color:#fff;padding:2px 4px;border-radius:4px;margin-right:3px;font-size:0.75rem;}
-.trend-away{background:#f87171;color:#fff;padding:2px 4px;border-radius:4px;margin-right:3px;font-size:0.75rem;}
-.trend-draw{background:#facc15;color:#000;padding:2px 4px;border-radius:4px;margin-right:3px;font-size:0.75rem;}
-.trend-over{background:#60a5fa;color:#fff;padding:2px 4px;border-radius:4px;margin-right:3px;font-size:0.75rem;}
-.trend-under{background:#93c5fd;color:#000;padding:2px 4px;border-radius:4px;margin-right:3px;font-size:0.75rem;}
-.trend-btts-yes{background:#fbbf24;color:#000;padding:2px 4px;border-radius:4px;margin-right:3px;font-size:0.75rem;}
-.trend-btts-no{background:#fde68a;color:#000;padding:2px 4px;border-radius:4px;margin-right:3px;font-size:0.75rem;}
+/* 🌤 Allgemeines Seitenlayout */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background: #f7fafc;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 🧭 Kopfbereich */
+header {
+  width: 100%;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+/* 🏆 League Select Dropdown */
+#league-select {
+  min-width: 250px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 0.9rem;
+  outline: none;
+  transition: 0.2s;
+}
+#league-select:hover {
+  border-color: #3b82f6;
+}
+#league-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px #93c5fd;
+}
+
+/* 🔄 Loader */
+#loader {
+  display: none;
+  margin-top: 20px;
+  color: #64748b;
+  font-style: italic;
+}
+
+/* 📊 Spielkarten */
+.match-card {
+  width: 95%;
+  max-width: 700px;
+  background: #ffffffcc;
+  backdrop-filter: blur(6px);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 8px auto;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+.match-card:hover {
+  transform: scale(1.01);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+}
+
+/* 🏠 Spieltitel */
+.match-card .team-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+.match-card .team-xg {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+/* 🔢 Statistiken */
+.text-xs {
+  color: #475569;
+}
+.text-sm {
+  color: #334155;
+}
+
+/* 💹 Highlight bei Value */
+.bg-green-100 {
+  background-color: #dcfce7 !important;
+  border: 1px solid #86efac !important;
+}
+.border-green-400 {
+  border-color: #4ade80 !important;
+}
+
+/* 🧱 Top-Listen */
+.top-section {
+  background-color: #f3f4f6;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  margin-bottom: 12px;
+}
+.top-section h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.top-section ul {
+  list-style: disc inside;
+  padding-left: 0;
+}
+
+/* 🔹 Fehleranzeige */
+.error {
+  color: #ef4444;
+  background: #fee2e2;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+/* 📱 Responsives Verhalten */
+@media (max-width: 600px) {
+  .match-card { width: 98%; font-size: 0.9rem; padding: 10px; }
+  #league-select { width: 90%; }
+  header { flex-direction: column; gap: 8px; }
+}
+
+/* 🟩 Balken für Heim/Draw/Auswärts/Over/BTTS */
+.bar-container { margin-bottom: 6px; }
+.bar-stack {
+  display: flex;
+  height: 20px;
+  width: 100%;
+  background-color: #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bar-home { background-color: #22c55e; }
+.bar-draw { background-color: #facc15; }
+.bar-away { background-color: #ef4444; }
+.bar-over { background-color: #3b82f6; }
+.bar-btts-yes { background-color: #fbbf24; }
+
+.bar-labels {
+  font-size: 0.8rem;
+  color: #1e293b;
+  text-align: center;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* 🔥 Trends */
+.trend span {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.trend-home { background-color: #22c55e; color: white; }
+.trend-away { background-color: #ef4444; color: white; }
+.trend-draw { background-color: #facc15; color: black; }
+.trend-over { background-color: #3b82f6; color: white; }
+.trend-under { background-color: #93c5fd; color: black; }
+.trend-btts-yes { background-color: #fbbf24; color: black; }
+.trend-btts-no { background-color: #fde68a; color: black; }
