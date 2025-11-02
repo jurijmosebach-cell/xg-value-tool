@@ -6,6 +6,10 @@ const leagueSelect = document.getElementById("league-select");
 
 refreshBtn.addEventListener("click", loadMatches);
 
+// Standard-Datum = heute
+const today = new Date().toISOString().slice(0, 10);
+dateInput.value = today;
+
 async function loadMatches() {
   const date = dateInput.value;
   const leagues = Array.from(leagueSelect.selectedOptions).map(o => o.value);
@@ -58,7 +62,11 @@ async function loadMatches() {
     // Top 5 Value
     // -----------------------------
     const topValue = [...games]
-      .sort((a,b)=>Math.max(b.value.home,b.value.draw,b.value.away,b.value.over25,b.value.btts)-Math.max(a.value.home,a.value.draw,a.value.away,a.value.over25,a.value.btts))
+      .sort((a,b)=>{
+        const maxA = Math.max(a.value.home, a.value.draw, a.value.away, a.value.over25, a.value.btts);
+        const maxB = Math.max(b.value.home, b.value.draw, b.value.away, b.value.over25, b.value.btts);
+        return maxB - maxA;
+      })
       .slice(0,5);
 
     const topValueSection = document.createElement("div");
@@ -74,7 +82,7 @@ async function loadMatches() {
     // -----------------------------
     // Top 5 Over 2.5
     // -----------------------------
-    const topOver = [...games].sort((a,b)=>b.prob.over25-a.prob.over25).slice(0,5);
+    const topOver = [...games].sort((a,b)=>b.prob.over25 - a.prob.over25).slice(0,5);
     const topOverSection = document.createElement("div");
     topOverSection.className="top-section";
     topOverSection.innerHTML=`<h2>🔝 Top 5 Over 2.5</h2>
@@ -84,7 +92,7 @@ async function loadMatches() {
     // -----------------------------
     // Top 5 BTTS
     // -----------------------------
-    const topBTTS = [...games].sort((a,b)=>b.prob.btts-a.prob.btts).slice(0,5);
+    const topBTTS = [...games].sort((a,b)=>b.prob.btts - a.prob.btts).slice(0,5);
     const topBTTSSection = document.createElement("div");
     topBTTSSection.className="top-section";
     topBTTSSection.innerHTML=`<h2>⚡ Top 5 BTTS</h2>
@@ -92,7 +100,7 @@ async function loadMatches() {
     matchList.appendChild(topBTTSSection);
 
     // -----------------------------
-    // Restliche Spiele
+    // Restliche Spiele pro Liga
     // -----------------------------
     const restSection = document.createElement("div");
     restSection.className="top-section";
@@ -168,6 +176,7 @@ async function loadMatches() {
     });
 
     statusDiv.textContent=`${games.length} Spiele geladen!`;
+
   } catch(err){
     statusDiv.textContent="Fehler: "+err.message;
     console.error(err);
