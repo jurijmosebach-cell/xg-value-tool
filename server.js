@@ -2,6 +2,7 @@ import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import "dotenv/config";
 
@@ -12,16 +13,18 @@ const app = express();
 app.use(cors());
 app.use(express.static(__dirname));
 
+// ✅ ENV Variablen
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
-const API_SPORTS_KEY = process.env.API_SPORTS_KEY;
+const API_SPORTS_KEY = process.env.API_FOOTBALL_KEY;
 
 if (!ODDS_API_KEY) console.error("⚠️ FEHLER: ODDS_API_KEY fehlt!");
-if (!API_SPORTS_KEY) console.error("⚠️ FEHLER: API_SPORTS_KEY fehlt!");
+if (!API_SPORTS_KEY) console.error("⚠️ FEHLER: API_FOOTBALL_KEY fehlt!");
 
 const PORT = process.env.PORT || 10000;
+const CACHE_FILE = path.join(__dirname, "cache.json");
 
 // -----------------------------
-// Ligen mit API-Sports IDs
+// Ligen & Basis-xG
 // -----------------------------
 const LEAGUES = [
   { key: "soccer_epl", name: "Premier League", apiSportsId: 39, baseXG: [1.55, 1.25] },
@@ -36,11 +39,43 @@ const LEAGUES = [
 ];
 
 // -----------------------------
-// Cache
+// In-Memory Cache + Persistenz
 // -----------------------------
-const CACHE = {};
-function cacheKey(date, leagues) {
-  return `${date}_${leagues.sort().join(",")}`;
+let CACHE = {};
+const CACHE_TTL = 1000 * 60 * 60 * 6; // 6 Stunden
+
+// 🧠 Cache aus Datei laden
+if (fs.existsSync(CACHE_FILE)) {
+  try {
+    CACHE = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+    console.log("💾 Cache aus Datei geladen:", Object.keys(CACHE).length, "Einträge");
+  } catch {
+    console.warn("⚠️ Konnte Cache-Datei nicht laden, starte frisch.");
+  }
+}
+
+// 🔒 Cache schreiben (debounced)
+let cacheWriteTimeout;
+function saveCacheToFile() {
+  clearTimeout(cacheWriteTimeout);
+  cacheWriteTimeout = setTimeout(() => {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(CACHE, null, 2));
+    console.log("💾 Cache gespeichert:", CACHE_FILE);
+  }, 2000);
+}
+
+function setCache(key, value) {
+  CACHE[key] = { data: value, timestamp: Date.now() };
+  saveCacheToFile();
+}
+function getCache(key) {
+  const entry = CACHE[key];
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > CACHE_TTL) {
+    delete CACHE[key];
+    return null;
+  }
+  return entry.data;
 }
 
 // -----------------------------
@@ -84,81 +119,66 @@ function bttsProbExact(homeXG, awayXG, maxGoals = 5) {
 }
 
 // -----------------------------
-// API-Sports Hilfsfunktionen
+// API-Football (mit persistierendem Cache)
 // -----------------------------
-async function getTeamIdByName(teamName, leagueId) {
-  const key = `teamid_${leagueId}_${teamName.toLowerCase()}`;
-  if (CACHE[key]) return CACHE[key];
+async function getTeamIdByName(teamName) {
+  const key = `teamid_${teamName.toLowerCase()}`;
+  const cached = getCache(key);
+  if (cached) return cached;
+
   const url = `https://v3.football.api-sports.io/teams?search=${encodeURIComponent(teamName)}`;
   const res = await fetch(url, { headers: { "x-apisports-key": API_SPORTS_KEY } });
+  if (!res.ok) return null;
   const data = await res.json();
   const team = data.response?.[0];
-  if (team) CACHE[key] = team.team.id;
+  if (team) setCache(key, team.team.id);
   return team?.team?.id;
 }
 
 async function fetchTeamStats(teamId, leagueId, season = 2024) {
-  const cacheId = `teamstats_${teamId}_${leagueId}_${season}`;
-  if (CACHE[cacheId]) return CACHE[cacheId];
+  const key = `teamstats_${teamId}_${leagueId}_${season}`;
+  const cached = getCache(key);
+  if (cached) return cached;
 
   const url = `https://v3.football.api-sports.io/teams/statistics?league=${leagueId}&season=${season}&team=${teamId}`;
   const res = await fetch(url, { headers: { "x-apisports-key": API_SPORTS_KEY } });
+  if (!res.ok) return { xGFor: 1.5, xGAgainst: 1.3, played: 1 };
   const data = await res.json();
+
   const stats = {
     xGFor: data.response?.expected?.goals?.for?.total || 0,
     xGAgainst: data.response?.expected?.goals?.against?.total || 0,
     played: data.response?.fixtures?.played?.total || 1,
   };
-  CACHE[cacheId] = stats;
+  setCache(key, stats);
   return stats;
 }
 
-// -----------------------------
-// Letzte 10 Spiele & Form-Faktor
-// -----------------------------
 async function fetchTeamFormFactor(teamId, leagueId, season = 2024, n = 10) {
-  const cacheId = `form_${teamId}_${leagueId}_${season}_${n}`;
-  if (CACHE[cacheId]) return CACHE[cacheId];
+  const key = `form_${teamId}_${leagueId}_${n}`;
+  const cached = getCache(key);
+  if (cached) return cached;
 
   const url = `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${season}&team=${teamId}&last=${n}`;
-  const res = await fetch(url, {
-    headers: { "x-apisports-key": API_SPORTS_KEY },
-  });
-
-  if (!res.ok) {
-    console.warn(`⚠️ Formdaten nicht abrufbar (${res.status})`);
-    return 1.0;
-  }
+  const res = await fetch(url, { headers: { "x-apisports-key": API_SPORTS_KEY } });
+  if (!res.ok) return 1.0;
 
   const data = await res.json();
   const matches = data.response || [];
   if (!matches.length) return 1.0;
 
   let points = 0;
-  let totalXG = 0;
-  let expectedXG = 0;
-
   for (const m of matches) {
     const isHome = m.teams.home.id === teamId;
     const goalsFor = isHome ? m.goals.home : m.goals.away;
     const goalsAgainst = isHome ? m.goals.away : m.goals.home;
-
     if (goalsFor > goalsAgainst) points += 3;
     else if (goalsFor === goalsAgainst) points += 1;
-
-    const xgFor = isHome ? m.teams.home.league?.xG || 0 : m.teams.away.league?.xG || 0;
-    const xgAgainst = isHome ? m.teams.away.league?.xG || 0 : m.teams.home.league?.xG || 0;
-    if (xgFor && xgAgainst) {
-      totalXG += xgFor;
-      expectedXG += xgAgainst;
-    }
   }
 
   const formPoints = points / (matches.length * 3);
-  const xgDiff = (totalXG - expectedXG) / matches.length;
-  const formFactor = 0.9 + formPoints * 0.2 + Math.tanh(xgDiff * 0.3) * 0.1;
-
-  CACHE[cacheId] = +formFactor.toFixed(3);
+  const formFactor = 0.9 + formPoints * 0.2;
+  setCache(key, formFactor);
   return formFactor;
 }
 
@@ -169,12 +189,10 @@ app.get("/api/games", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const date = req.query.date || today;
   const leaguesParam = req.query.leagues ? req.query.leagues.split(",") : LEAGUES.map(l => l.key);
-  const cacheId = cacheKey(date, leaguesParam);
+  const cacheKey = `games_${date}_${leaguesParam.join(",")}`;
 
-  if (CACHE[cacheId]) {
-    console.log("Cache-Treffer:", cacheId);
-    return res.json(CACHE[cacheId]);
-  }
+  const cached = getCache(cacheKey);
+  if (cached) return res.json(cached);
 
   const games = [];
 
@@ -184,7 +202,6 @@ app.get("/api/games", async (req, res) => {
       const response = await fetch(oddsUrl);
       if (!response.ok) continue;
       const data = await response.json();
-      if (!Array.isArray(data)) continue;
 
       for (const g of data) {
         if (!g.commence_time?.startsWith(date)) continue;
@@ -205,37 +222,29 @@ app.get("/api/games", async (req, res) => {
         };
         if (!odds.home || !odds.away) continue;
 
+        // Faire Wahrscheinlichkeiten
         const inv = { home: 1 / odds.home, draw: 1 / odds.draw, away: 1 / odds.away };
         const sumInv = inv.home + inv.draw + inv.away;
         const fair = { home: inv.home / sumInv, draw: inv.draw / sumInv, away: inv.away / sumInv };
 
-        let homeXG, awayXG;
-        try {
-          const homeId = await getTeamIdByName(home, league.apiSportsId);
-          const awayId = await getTeamIdByName(away, league.apiSportsId);
-          if (homeId && awayId) {
-            const homeStats = await fetchTeamStats(homeId, league.apiSportsId);
-            const awayStats = await fetchTeamStats(awayId, league.apiSportsId);
-            const homeForm = await fetchTeamFormFactor(homeId, league.apiSportsId);
-            const awayForm = await fetchTeamFormFactor(awayId, league.apiSportsId);
+        // xG Berechnung
+        const homeId = await getTeamIdByName(home);
+        const awayId = await getTeamIdByName(away);
 
-            const avgHomeXG = homeStats.xGFor / homeStats.played;
-            const avgAwayXG = awayStats.xGFor / awayStats.played;
-            const avgHomeConcede = homeStats.xGAgainst / homeStats.played;
-            const avgAwayConcede = awayStats.xGAgainst / awayStats.played;
+        let homeXG = league.baseXG[0];
+        let awayXG = league.baseXG[1];
 
-            homeXG = ((avgHomeXG + avgAwayConcede) / 2) * 1.05 * homeForm;
-            awayXG = ((avgAwayXG + avgHomeConcede) / 2) * 0.95 * awayForm;
-          }
-        } catch (err) {
-          console.warn(`⚠️ Keine API-Sports-Daten für ${home} vs ${away}:`, err.message);
+        if (homeId && awayId) {
+          const [homeStats, awayStats, homeForm, awayForm] = await Promise.all([
+            fetchTeamStats(homeId, league.apiSportsId),
+            fetchTeamStats(awayId, league.apiSportsId),
+            fetchTeamFormFactor(homeId, league.apiSportsId),
+            fetchTeamFormFactor(awayId, league.apiSportsId),
+          ]);
+
+          homeXG = ((homeStats.xGFor / homeStats.played + awayStats.xGAgainst / awayStats.played) / 2) * 1.05 * homeForm;
+          awayXG = ((awayStats.xGFor / awayStats.played + homeStats.xGAgainst / homeStats.played) / 2) * 0.95 * awayForm;
         }
-
-        const baseHome = league.baseXG[0];
-        const baseAway = league.baseXG[1];
-        const ratio = fair.home / (fair.home + fair.away);
-        homeXG = homeXG || Math.max(0.1, baseHome + (ratio - 0.5) * 0.8);
-        awayXG = awayXG || Math.max(0.05, baseAway - (ratio - 0.5) * 0.8);
 
         const prob = computeMatchProb(homeXG, awayXG);
         prob.over25 = probOver25(homeXG, awayXG);
@@ -246,30 +255,28 @@ app.get("/api/games", async (req, res) => {
           draw: prob.draw * odds.draw - 1,
           away: prob.away * odds.away - 1,
           over25: prob.over25 * odds.over25 - 1,
-          btts: prob.btts * (odds.over25 || 2) - 1,
         };
 
         games.push({
           home,
           away,
           league: league.name,
-          homeLogo: `https://placehold.co/48x36?text=${home[0]}`,
-          awayLogo: `https://placehold.co/48x36?text=${away[0]}`,
+          commence_time: g.commence_time,
           odds,
           prob,
           value,
           homeXG: +homeXG.toFixed(2),
           awayXG: +awayXG.toFixed(2),
-          totalXG: +(homeXG + awayXG).toFixed(2),
         });
       }
     } catch (err) {
-      console.error(`❌ Fehler ${league.name}:`, err.message);
+      console.error(`❌ Fehler in ${league.name}:`, err.message);
     }
   }
 
-  CACHE[cacheId] = { response: games };
-  res.json({ response: games });
+  const response = { response: games };
+  setCache(cacheKey, response);
+  res.json(response);
 });
 
 // -----------------------------
