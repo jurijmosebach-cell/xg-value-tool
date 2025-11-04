@@ -1,4 +1,5 @@
 // server.js
+
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -25,7 +26,7 @@ const DATA_DIR = path.join(__dirname, "data");
 const TEAMS_FILE = path.join(DATA_DIR, "teams.json");
 
 // ------------------------------------------------------
-// Ligen (alle vorherigen + IDs für API-Football)
+// Ligen
 // ------------------------------------------------------
 const LEAGUES = [
   { key: "soccer_epl", name: "Premier League", id: 39, baseXG: [1.55, 1.25] },
@@ -36,11 +37,10 @@ const LEAGUES = [
   { key: "soccer_france_ligue_one", name: "Ligue 1", id: 61, baseXG: [1.55, 1.35] },
   { key: "soccer_netherlands_eredivisie", name: "Eredivisie", id: 88, baseXG: [1.70, 1.45] },
   { key: "soccer_sweden_allsvenskan", name: "Allsvenskan", id: 113, baseXG: [1.55, 1.45] },
-  { key: "soccer_turkey_super_league", name: "Turkish Süper Lig", id: 203, baseXG: [1.50, 1.40] },
-  { key: "soccer_usa_mls", name: "MLS (USA)", id: 253, baseXG: [1.50, 1.40] },
-  { key: "soccer_uefa_champs_league", name: "UEFA Champions League", id: 2, baseXG: [1.50, 1.35] },
-  { key: "soccer_uefa_europa_conference_league", name: "UEFA Europa Conference League", id: 848, baseXG: [1.45, 1.25] },
-  { key: "soccer_uefa_champs_league_qualification", name: "Champions League Qualification", id: 17, baseXG: [1.40, 1.25] },
+  { key: "soccer_turkey_super_league", name: "Süper Lig", id: 203, baseXG: [1.50, 1.40] },
+  { key: "soccer_usa_mls", name: "MLS", id: 253, baseXG: [1.50, 1.40] },
+  { key: "soccer_uefa_champs_league", name: "Champions League", id: 2, baseXG: [1.50, 1.35] },
+  { key: "soccer_uefa_europa_conference_league", name: "Europa Conference League", id: 848, baseXG: [1.45, 1.25] },
 ];
 
 const CACHE = {};
@@ -55,39 +55,34 @@ function poisson(k, λ) { return (Math.pow(λ, k) * Math.exp(-λ)) / factorial(k
 
 function computeMatchProb(homeXG, awayXG, max = 6) {
   let pHome = 0, pDraw = 0, pAway = 0;
-  for (let h = 0; h <= max; h++) {
+  for (let h = 0; h <= max; h++)
     for (let a = 0; a <= max; a++) {
       const p = poisson(h, homeXG) * poisson(a, awayXG);
       if (h > a) pHome += p;
       else if (h === a) pDraw += p;
       else pAway += p;
     }
-  }
   return { home: pHome, draw: pDraw, away: pAway };
 }
 
 function probOver25(homeXG, awayXG, max = 6) {
   let p = 0;
-  for (let h = 0; h <= max; h++) {
-    for (let a = 0; a <= max; a++) {
+  for (let h = 0; h <= max; h++)
+    for (let a = 0; a <= max; a++)
       if (h + a > 2) p += poisson(h, homeXG) * poisson(a, awayXG);
-    }
-  }
   return p;
 }
 
 function bttsProbExact(homeXG, awayXG, max = 6) {
   let p = 0;
-  for (let h = 1; h <= max; h++) {
-    for (let a = 1; a <= max; a++) {
+  for (let h = 1; h <= max; h++)
+    for (let a = 1; a <= max; a++)
       p += poisson(h, homeXG) * poisson(a, awayXG);
-    }
-  }
   return p;
 }
 
 // ------------------------------------------------------
-// Teams speichern/laden
+// Lade oder erstelle Teams.json
 // ------------------------------------------------------
 async function loadOrFetchTeams(forceReload = false) {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
@@ -98,8 +93,6 @@ async function loadOrFetchTeams(forceReload = false) {
     console.log(`✅ ${Object.keys(TEAM_IDS).length} Teams aus Datei geladen.`);
     return;
   }
-
-  if (!API_FOOTBALL_KEY) return;
 
   console.log("📡 Lade Teamdaten aus API-Football ...");
   const headers = { "x-apisports-key": API_FOOTBALL_KEY };
@@ -129,7 +122,7 @@ async function loadOrFetchTeams(forceReload = false) {
 }
 
 // ------------------------------------------------------
-// Teamform (letzte 10 Spiele)
+// Teamform holen (10 Spiele, Cache)
 // ------------------------------------------------------
 async function getTeamForm(teamName) {
   const teamId = TEAM_IDS[teamName];
@@ -166,7 +159,7 @@ async function getTeamForm(teamName) {
 }
 
 // ------------------------------------------------------
-// /api/games
+// API /api/games
 // ------------------------------------------------------
 app.get("/api/games", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
@@ -254,7 +247,7 @@ app.get("/api/games", async (req, res) => {
 });
 
 // ------------------------------------------------------
-// Start
+// Startup
 // ------------------------------------------------------
 await loadOrFetchTeams();
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
