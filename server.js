@@ -4,7 +4,6 @@ import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
 import path from "path";
-import fs from "fs";
 import { fileURLToPath } from "url";
 import "dotenv/config";
 
@@ -22,11 +21,9 @@ if (!ODDS_API_KEY) console.error("❌ FEHLER: ODDS_API_KEY fehlt!");
 if (!API_FOOTBALL_KEY) console.error("⚠️ FEHLER: API_FOOTBALL_KEY fehlt – Teamform deaktiviert.");
 
 const PORT = process.env.PORT || 10000;
-const DATA_DIR = path.join(__dirname, "data");
-const TEAMS_FILE = path.join(DATA_DIR, "teams.json");
 
 // ------------------------------------------------------
-// Ligen
+// Ligen mit IDs (API-Football IDs)
 // ------------------------------------------------------
 const LEAGUES = [
   { key: "soccer_epl", name: "Premier League", id: 39, baseXG: [1.55, 1.25] },
@@ -43,12 +40,15 @@ const LEAGUES = [
   { key: "soccer_uefa_europa_conference_league", name: "Europa Conference League", id: 848, baseXG: [1.45, 1.25] },
 ];
 
+// ------------------------------------------------------
+// Caches
+// ------------------------------------------------------
 const CACHE = {};
 const TEAM_CACHE = {};
-let TEAM_IDS = {};
+let TEAM_IDS = {}; // Dynamisch geladen
 
 // ------------------------------------------------------
-// Mathefunktionen
+// Mathematische Funktionen
 // ------------------------------------------------------
 function factorial(n) { return n <= 1 ? 1 : n * factorial(n - 1); }
 function poisson(k, λ) { return (Math.pow(λ, k) * Math.exp(-λ)) / factorial(k); }
@@ -82,21 +82,12 @@ function bttsProbExact(homeXG, awayXG, max = 6) {
 }
 
 // ------------------------------------------------------
-// Lade oder erstelle Teams.json
+// Lade Team-IDs dynamisch aus API-Football
 // ------------------------------------------------------
-async function loadOrFetchTeams(forceReload = false) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-
-  if (fs.existsSync(TEAMS_FILE) && !forceReload) {
-    console.log("📂 Lade gespeicherte teams.json ...");
-    TEAM_IDS = JSON.parse(fs.readFileSync(TEAMS_FILE, "utf-8"));
-    console.log(`✅ ${Object.keys(TEAM_IDS).length} Teams aus Datei geladen.`);
-    return;
-  }
-
-  console.log("📡 Lade Teamdaten aus API-Football ...");
+async function loadTeamIDs() {
+  if (!API_FOOTBALL_KEY) return;
+  console.log("📥 Lade Teamdaten aus API-Football ...");
   const headers = { "x-apisports-key": API_FOOTBALL_KEY };
-  const allTeams = {};
 
   for (const league of LEAGUES) {
     try {
@@ -108,21 +99,18 @@ async function loadOrFetchTeams(forceReload = false) {
       const teams = data?.response || [];
       teams.forEach(t => {
         const name = t.team.name.trim();
-        allTeams[name] = t.team.id;
+        TEAM_IDS[name] = t.team.id;
       });
       console.log(`✅ ${league.name}: ${teams.length} Teams geladen.`);
     } catch (err) {
-      console.error(`❌ Fehler beim Laden ${league.name}:`, err.message);
+      console.error(`❌ Fehler beim Laden der Teams für ${league.name}:`, err.message);
     }
   }
-
-  TEAM_IDS = allTeams;
-  fs.writeFileSync(TEAMS_FILE, JSON.stringify(allTeams, null, 2));
-  console.log(`💾 Gespeichert unter data/teams.json (${Object.keys(allTeams).length} Teams).`);
+  console.log(`📚 Insgesamt ${Object.keys(TEAM_IDS).length} Teams geladen.`);
 }
 
 // ------------------------------------------------------
-// Teamform holen (10 Spiele, Cache)
+// Hole Teamform (letzte 10 Spiele, cached)
 // ------------------------------------------------------
 async function getTeamForm(teamName) {
   const teamId = TEAM_IDS[teamName];
@@ -249,6 +237,6 @@ app.get("/api/games", async (req, res) => {
 // ------------------------------------------------------
 // Startup
 // ------------------------------------------------------
-await loadOrFetchTeams();
+await loadTeamIDs();
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
