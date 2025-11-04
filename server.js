@@ -1,7 +1,10 @@
+// server.js
+
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import "dotenv/config";
 
@@ -15,143 +18,172 @@ app.use(express.static(__dirname));
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
 const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
 
-if (!ODDS_API_KEY) console.error("⚠️ FEHLER: ODDS_API_KEY fehlt!");
-if (!API_FOOTBALL_KEY) console.error("⚠️ FEHLER: API_FOOTBALL_KEY fehlt!");
+if (!ODDS_API_KEY) console.error("❌ FEHLER: ODDS_API_KEY fehlt!");
+if (!API_FOOTBALL_KEY) console.error("⚠️ FEHLER: API_FOOTBALL_KEY fehlt – Teamform deaktiviert.");
 
 const PORT = process.env.PORT || 10000;
+const DATA_DIR = path.join(__dirname, "data");
+const TEAMS_FILE = path.join(DATA_DIR, "teams.json");
 
-// -----------------------------
-// LEAGUES
-// -----------------------------
+// ------------------------------------------------------
+// Ligen
+// ------------------------------------------------------
 const LEAGUES = [
-  { key: "soccer_epl", id: 39, name: "Premier League", baseXG: [1.55, 1.25] },
-  { key: "soccer_germany_bundesliga", id: 78, name: "Bundesliga", baseXG: [1.60, 1.35] },
-  { key: "soccer_germany_2_bundesliga", id: 79, name: "2. Bundesliga", baseXG: [1.55, 1.45] },
-  { key: "soccer_spain_la_liga", id: 140, name: "La Liga", baseXG: [1.45, 1.20] },
-  { key: "soccer_italy_serie_a", id: 135, name: "Serie A", baseXG: [1.45, 1.25] },
-  { key: "soccer_france_ligue_one", id: 61, name: "Ligue 1", baseXG: [1.55, 1.35] },
-  { key: "soccer_netherlands_eredivisie", id: 88, name: "Eredivisie", baseXG: [1.70, 1.45] },
-  { key: "soccer_turkey_super_league", id: 203, name: "Süper Lig", baseXG: [1.50, 1.40] },
-  { key: "soccer_usa_mls", id: 253, name: "MLS", baseXG: [1.50, 1.40] },
-  { key: "soccer_uefa_champs_league", id: 2, name: "Champions League", baseXG: [1.50, 1.35] },
+  { key: "soccer_epl", name: "Premier League", id: 39, baseXG: [1.55, 1.25] },
+  { key: "soccer_germany_bundesliga", name: "Bundesliga", id: 78, baseXG: [1.60, 1.35] },
+  { key: "soccer_germany_2_bundesliga", name: "2. Bundesliga", id: 79, baseXG: [1.55, 1.45] },
+  { key: "soccer_spain_la_liga", name: "La Liga", id: 140, baseXG: [1.45, 1.20] },
+  { key: "soccer_italy_serie_a", name: "Serie A", id: 135, baseXG: [1.45, 1.25] },
+  { key: "soccer_france_ligue_one", name: "Ligue 1", id: 61, baseXG: [1.55, 1.35] },
+  { key: "soccer_netherlands_eredivisie", name: "Eredivisie", id: 88, baseXG: [1.70, 1.45] },
+  { key: "soccer_sweden_allsvenskan", name: "Allsvenskan", id: 113, baseXG: [1.55, 1.45] },
+  { key: "soccer_turkey_super_league", name: "Süper Lig", id: 203, baseXG: [1.50, 1.40] },
+  { key: "soccer_usa_mls", name: "MLS", id: 253, baseXG: [1.50, 1.40] },
+  { key: "soccer_uefa_champs_league", name: "Champions League", id: 2, baseXG: [1.50, 1.35] },
+  { key: "soccer_uefa_europa_conference_league", name: "Europa Conference League", id: 848, baseXG: [1.45, 1.25] },
 ];
 
-// -----------------------------
-// CACHE
-// -----------------------------
 const CACHE = {};
-function cacheKey(date, leagues) {
-  return `${date}_${leagues.sort().join(",")}`;
-}
+const TEAM_CACHE = {};
+let TEAM_IDS = {};
 
-// -----------------------------
-// MATHEMATIK
-// -----------------------------
-const FACT_CACHE = [1];
-function factorial(n) {
-  if (FACT_CACHE[n] !== undefined) return FACT_CACHE[n];
-  let val = FACT_CACHE[FACT_CACHE.length - 1];
-  for (let i = FACT_CACHE.length; i <= n; i++) {
-    val *= i;
-    FACT_CACHE[i] = val;
-  }
-  return FACT_CACHE[n];
-}
+// ------------------------------------------------------
+// Mathefunktionen
+// ------------------------------------------------------
+function factorial(n) { return n <= 1 ? 1 : n * factorial(n - 1); }
+function poisson(k, λ) { return (Math.pow(λ, k) * Math.exp(-λ)) / factorial(k); }
 
-function poisson(k, lambda) {
-  return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
-}
-
-function computeMatchProb(homeXG, awayXG, maxGoals = 6) {
+function computeMatchProb(homeXG, awayXG, max = 6) {
   let pHome = 0, pDraw = 0, pAway = 0;
-  for (let h = 0; h <= maxGoals; h++) {
-    for (let a = 0; a <= maxGoals; a++) {
+  for (let h = 0; h <= max; h++)
+    for (let a = 0; a <= max; a++) {
       const p = poisson(h, homeXG) * poisson(a, awayXG);
       if (h > a) pHome += p;
       else if (h === a) pDraw += p;
       else pAway += p;
     }
-  }
   return { home: pHome, draw: pDraw, away: pAway };
 }
 
-function probOver25(homeXG, awayXG, maxGoals = 6) {
+function probOver25(homeXG, awayXG, max = 6) {
   let p = 0;
-  for (let h = 0; h <= maxGoals; h++) {
-    for (let a = 0; a <= maxGoals; a++) {
+  for (let h = 0; h <= max; h++)
+    for (let a = 0; a <= max; a++)
       if (h + a > 2) p += poisson(h, homeXG) * poisson(a, awayXG);
-    }
-  }
   return p;
 }
 
-function bttsProbExact(homeXG, awayXG, maxGoals = 6) {
+function bttsProbExact(homeXG, awayXG, max = 6) {
   let p = 0;
-  for (let h = 1; h <= maxGoals; h++) {
-    for (let a = 1; a <= maxGoals; a++) {
+  for (let h = 1; h <= max; h++)
+    for (let a = 1; a <= max; a++)
       p += poisson(h, homeXG) * poisson(a, awayXG);
-    }
-  }
   return p;
 }
 
-// -----------------------------
-// TEAM FORM VIA API-FOOTBALL
-// -----------------------------
-async function getTeamForm(teamId, leagueId) {
-  const cacheId = `form_${teamId}_${leagueId}`;
-  if (CACHE[cacheId]) return CACHE[cacheId];
+// ------------------------------------------------------
+// Lade oder erstelle Teams.json
+// ------------------------------------------------------
+async function loadOrFetchTeams(forceReload = false) {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
+  if (fs.existsSync(TEAMS_FILE) && !forceReload) {
+    console.log("📂 Lade gespeicherte teams.json ...");
+    TEAM_IDS = JSON.parse(fs.readFileSync(TEAMS_FILE, "utf-8"));
+    console.log(`✅ ${Object.keys(TEAM_IDS).length} Teams aus Datei geladen.`);
+    return;
+  }
+
+  console.log("📡 Lade Teamdaten aus API-Football ...");
+  const headers = { "x-apisports-key": API_FOOTBALL_KEY };
+  const allTeams = {};
+
+  for (const league of LEAGUES) {
+    try {
+      const res = await fetch(
+        `https://v3.football.api-sports.io/teams?league=${league.id}&season=2024`,
+        { headers }
+      );
+      const data = await res.json();
+      const teams = data?.response || [];
+      teams.forEach(t => {
+        const name = t.team.name.trim();
+        allTeams[name] = t.team.id;
+      });
+      console.log(`✅ ${league.name}: ${teams.length} Teams geladen.`);
+    } catch (err) {
+      console.error(`❌ Fehler beim Laden ${league.name}:`, err.message);
+    }
+  }
+
+  TEAM_IDS = allTeams;
+  fs.writeFileSync(TEAMS_FILE, JSON.stringify(allTeams, null, 2));
+  console.log(`💾 Gespeichert unter data/teams.json (${Object.keys(allTeams).length} Teams).`);
+}
+
+// ------------------------------------------------------
+// Teamform holen (10 Spiele, Cache)
+// ------------------------------------------------------
+async function getTeamForm(teamName) {
+  const teamId = TEAM_IDS[teamName];
+  if (!teamId || !API_FOOTBALL_KEY) return 0.5;
+  if (TEAM_CACHE[teamId]) return TEAM_CACHE[teamId];
 
   try {
     const res = await fetch(
-      `https://v3.football.api-sports.io/fixtures?team=${teamId}&league=${leagueId}&last=10`,
+      `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=10`,
       { headers: { "x-apisports-key": API_FOOTBALL_KEY } }
     );
-
-    if (!res.ok) throw new Error(`API-Football error: ${res.status}`);
     const data = await res.json();
-    const fixtures = data.response || [];
+    const fixtures = data?.response || [];
+    if (!fixtures.length) return 0.5;
 
-    const wins = fixtures.filter(f => f.teams.home.id === teamId && f.teams.home.winner ||
-                                       f.teams.away.id === teamId && f.teams.away.winner).length;
+    let wins = 0, draws = 0, losses = 0;
+    fixtures.forEach(f => {
+      const isHome = f.teams.home.id === teamId;
+      const result =
+        f.teams.home.winner === true ? "H" :
+        f.teams.away.winner === true ? "A" : "D";
+      if ((result === "H" && isHome) || (result === "A" && !isHome)) wins++;
+      else if (result === "D") draws++;
+      else losses++;
+    });
 
-    const formFactor = 0.8 + (wins / 10) * 0.4; // zwischen 0.8 und 1.2
-    CACHE[cacheId] = formFactor;
-    return formFactor;
+    const score = (wins + 0.5 * draws) / (wins + draws + losses || 1);
+    TEAM_CACHE[teamId] = score;
+    return score;
   } catch (err) {
-    console.warn("⚠️ Teamform-Fehler:", err.message);
-    return 1.0; // neutral
+    console.error("⚠️ Fehler getTeamForm:", err.message);
+    return 0.5;
   }
 }
 
-// -----------------------------
+// ------------------------------------------------------
 // API /api/games
-// -----------------------------
+// ------------------------------------------------------
 app.get("/api/games", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const date = req.query.date || today;
-  const leaguesParam = req.query.leagues ? req.query.leagues.split(",") : LEAGUES.map(l => l.key);
-  const cacheId = cacheKey(date, leaguesParam);
+  const leaguesParam = req.query.leagues
+    ? req.query.leagues.split(",")
+    : LEAGUES.map(l => l.key);
 
-  if (CACHE[cacheId]) {
-    console.log("🟢 Cache-Treffer:", cacheId);
-    return res.json(CACHE[cacheId]);
-  }
+  const cacheId = `${date}_${leaguesParam.sort().join(",")}`;
+  if (CACHE[cacheId]) return res.json(CACHE[cacheId]);
 
   const games = [];
-  const EPS = 1e-6;
 
   for (const league of LEAGUES.filter(l => leaguesParam.includes(l.key))) {
     try {
-      // ODDS abrufen
       const oddsUrl = `https://api.the-odds-api.com/v4/sports/${league.key}/odds?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso`;
-      const response = await fetch(oddsUrl);
-      if (!response.ok) continue;
-      const data = await response.json();
-      if (!Array.isArray(data)) continue;
+      const resOdds = await fetch(oddsUrl);
+      if (!resOdds.ok) continue;
+      const data = await resOdds.json();
 
       for (const g of data) {
-        if (!g.commence_time?.startsWith(date)) continue;
+        const gameDate = new Date(g.commence_time).toISOString().slice(0, 10);
+        if (gameDate !== date) continue;
+
         const home = g.home_team;
         const away = g.away_team;
         const book = g.bookmakers?.[0];
@@ -168,52 +200,28 @@ app.get("/api/games", async (req, res) => {
         };
         if (!odds.home || !odds.away) continue;
 
-        // Faire Wahrscheinlichkeiten
-        const invHome = 1 / (odds.home || EPS);
-        const invDraw = 1 / (odds.draw || (odds.home + odds.away) / 2 || EPS);
-        const invAway = 1 / (odds.away || EPS);
-        const sumInv = invHome + invDraw + invAway;
-        const fair = {
-          home: invHome / sumInv,
-          draw: invDraw / sumInv,
-          away: invAway / sumInv,
-        };
+        const homeForm = await getTeamForm(home);
+        const awayForm = await getTeamForm(away);
 
-        // Team-IDs abrufen (API-Football)
-        const teamSearch = async name => {
-          const res = await fetch(
-            `https://v3.football.api-sports.io/teams?search=${encodeURIComponent(name)}&league=${league.id}`,
-            { headers: { "x-apisports-key": API_FOOTBALL_KEY } }
-          );
-          const json = await res.json();
-          return json.response?.[0]?.team?.id || null;
-        };
-
-        const homeId = await teamSearch(home);
-        const awayId = await teamSearch(away);
-
-        const homeForm = homeId ? await getTeamForm(homeId, league.id) : 1.0;
-        const awayForm = awayId ? await getTeamForm(awayId, league.id) : 1.0;
-
-        // xG-Schätzung
         const baseHome = league.baseXG[0];
         const baseAway = league.baseXG[1];
-        const ratio = fair.home - fair.away;
-        const homeXG = Math.max(0.2, baseHome * homeForm + ratio * 0.9);
-        const awayXG = Math.max(0.1, baseAway * awayForm - ratio * 0.9);
+        const impliedHome = 1 / odds.home;
+        const impliedAway = 1 / odds.away;
+        const ratio = impliedHome / (impliedHome + impliedAway);
 
-        // Wahrscheinlichkeiten
+        const homeXG = Math.max(0.3, baseHome + (ratio - 0.5) * 0.8 + (homeForm - 0.5) * 0.4);
+        const awayXG = Math.max(0.2, baseAway - (ratio - 0.5) * 0.8 + (awayForm - 0.5) * 0.4);
+
         const prob = computeMatchProb(homeXG, awayXG);
         prob.over25 = probOver25(homeXG, awayXG);
         prob.btts = bttsProbExact(homeXG, awayXG);
 
-        // Value
         const value = {
           home: prob.home * odds.home - 1,
-          draw: prob.draw * (odds.draw || (odds.home + odds.away) / 2) - 1,
+          draw: prob.draw * odds.draw - 1,
           away: prob.away * odds.away - 1,
-          over25: prob.over25 * (odds.over25 || 2) - 1,
-          btts: prob.btts * (odds.over25 || 2) - 1,
+          over25: prob.over25 * odds.over25 - 1,
+          btts: prob.btts * odds.over25 - 1,
         };
 
         games.push({
@@ -223,15 +231,14 @@ app.get("/api/games", async (req, res) => {
           odds,
           prob,
           value,
-          homeForm,
-          awayForm,
           homeXG: +homeXG.toFixed(2),
           awayXG: +awayXG.toFixed(2),
           totalXG: +(homeXG + awayXG).toFixed(2),
+          form: { home: homeForm, away: awayForm },
         });
       }
     } catch (err) {
-      console.error(`❌ Fehler ${league.name}:`, err.message);
+      console.error(`❌ Fehler in ${league.name}:`, err.message);
     }
   }
 
@@ -239,8 +246,9 @@ app.get("/api/games", async (req, res) => {
   res.json({ response: games });
 });
 
-// -----------------------------
-// Static + Start
-// -----------------------------
+// ------------------------------------------------------
+// Startup
+// ------------------------------------------------------
+await loadOrFetchTeams();
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.listen(PORT, () => console.log(`✅ Server läuft auf Port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
