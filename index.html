@@ -1,52 +1,207 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⚽ xG Odds Dashboard</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <header>
-    <h1>⚽ xG Odds Dashboard</h1>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Football xG Value Analyzer ⚽</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-800">
+    <div class="max-w-6xl mx-auto p-4">
+      <!-- HEADER -->
+      <header class="mb-6 flex flex-col sm:flex-row items-center justify-between">
+        <h1 class="text-2xl font-bold mb-3 sm:mb-0">
+          ⚽ Football Value Analyzer
+        </h1>
+        <div class="flex flex-wrap gap-3 items-center">
+          <label class="text-sm">📅 Datum:</label>
+          <input
+            type="date"
+            id="date"
+            class="border border-gray-300 rounded-lg px-2 py-1 text-sm"
+          />
+          <label class="text-sm">🏆 Liga:</label>
+          <select
+            id="league"
+            class="border border-gray-300 rounded-lg px-2 py-1 text-sm"
+          >
+            <option value="soccer_uefa_champs_league">
+              UEFA Champions League
+            </option>
+            <option value="soccer_epl">Premier League</option>
+            <option value="soccer_germany_bundesliga">Bundesliga</option>
+            <option value="soccer_spain_la_liga">La Liga</option>
+          </select>
+          <button
+            id="load"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700"
+          >
+            Spiele laden
+          </button>
+        </div>
+      </header>
 
-  <!-- Filter Section -->
-  <div class="filter-section" style="margin:20px; text-align:center;">
-    <label for="match-date" class="font-medium">📅 Datum:</label>
-    <input type="date" id="match-date" />
+      <!-- STATUS -->
+      <div id="status" class="text-gray-600 mb-4 text-sm"></div>
 
-    <label for="league-select" class="font-medium">🏆 Ligen:</label>
-    <select id="league-select" multiple size="10">
-      <option value="soccer_epl">Premier League</option>
-      <option value="soccer_germany_bundesliga">Bundesliga</option>
-      <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
-      <option value="soccer_spain_la_liga">La Liga</option>
-      <option value="soccer_italy_serie_a">Serie A</option>
-      <option value="soccer_france_ligue_one">Ligue 1</option>
-      <option value="soccer_netherlands_eredivisie">Eredivisie</option>
-      <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
-      <option value="soccer_turkey_super_league">Turkish Süper Lig</option>
-      <option value="soccer_usa_mls">MLS (USA)</option>
-      <option value="soccer_uefa_champs_league">UEFA Champions League</option>
-      <option value="soccer_uefa_europa_conference_league">UEFA Europa Conference League</option>
-      <option value="soccer_uefa_champs_league_qualification">Champions League Qualification</option>
-    </select>
+      <!-- TOP SECTIONS -->
+      <div id="summary" class="space-y-6"></div>
 
-    <button id="refresh" style="margin-left:10px; padding:6px 12px; border-radius:6px; background:#3b82f6; color:white; border:none;">🔄 Spiele laden</button>
-  </div>
+      <!-- SPIELE -->
+      <div id="games" class="grid gap-4 mt-6"></div>
+    </div>
 
-  <!-- Status -->
-  <div id="status"></div>
+    <script>
+      const dateInput = document.getElementById("date");
+      const leagueSelect = document.getElementById("league");
+      const loadBtn = document.getElementById("load");
+      const gamesContainer = document.getElementById("games");
+      const statusEl = document.getElementById("status");
+      const summaryEl = document.getElementById("summary");
 
-  <!-- Top-Listen -->
-  <div id="match-list" class="space-y-6"></div>
+      dateInput.valueAsDate = new Date();
 
-  <script src="app.js"></script>
-  <script>
-    // Datum standardmäßig auf heute
-    const dateInput = document.getElementById("match-date");
-    dateInput.value = new Date().toISOString().slice(0,10);
-  </script>
-</body>
+      loadBtn.addEventListener("click", loadGames);
+
+      async function loadGames() {
+        const date = dateInput.value;
+        const league = leagueSelect.value;
+        gamesContainer.innerHTML = "";
+        summaryEl.innerHTML = "";
+        statusEl.textContent = "⏳ Lade Spiele ...";
+
+        try {
+          const res = await fetch(`/api/games?date=${date}&leagues=${league}`);
+          const data = await res.json();
+          const games = data.response || [];
+
+          if (!games.length) {
+            statusEl.textContent = "❌ Keine Spiele gefunden.";
+            return;
+          }
+
+          statusEl.textContent = `${games.length} Spiele geladen!`;
+          renderSummary(games);
+          renderGames(games);
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = "⚠️ Fehler beim Laden der Spiele.";
+        }
+      }
+
+      function renderSummary(games) {
+        const topProb = [...games]
+          .sort((a, b) =>
+            Math.max(b.prob.home, b.prob.draw, b.prob.away) -
+            Math.max(a.prob.home, a.prob.draw, a.prob.away)
+          )
+          .slice(0, 5)
+          .map(
+            g =>
+              `<li>${g.home} vs ${g.away} → <b>${
+                ["Tipp 1", "Tipp X", "Tipp 2"][
+                  [g.prob.home, g.prob.draw, g.prob.away].indexOf(
+                    Math.max(g.prob.home, g.prob.draw, g.prob.away)
+                  )
+                ]
+              }</b> (${(Math.max(
+                g.prob.home,
+                g.prob.draw,
+                g.prob.away
+              ) * 100).toFixed(1)}%)</li>`
+          )
+          .join("");
+
+        const topValue = [...games]
+          .sort((a, b) =>
+            Math.max(b.value.home, b.value.draw, b.value.away) -
+            Math.max(a.value.home, a.value.draw, a.value.away)
+          )
+          .slice(0, 5)
+          .map(
+            g =>
+              `<li>${g.home} vs ${g.away} → Beste Value: <b>${
+                ["1", "X", "2"][
+                  [g.value.home, g.value.draw, g.value.away].indexOf(
+                    Math.max(g.value.home, g.value.draw, g.value.away)
+                  )
+                ]
+              }</b> (${(Math.max(
+                g.value.home,
+                g.value.draw,
+                g.value.away
+              ) * 100).toFixed(1)}%)</li>`
+          )
+          .join("");
+
+        summaryEl.innerHTML = `
+          <section class="bg-white rounded-2xl p-4 shadow">
+            <h2 class="font-bold text-lg mb-2">🏅 Top 5 Wahrscheinlichkeit</h2>
+            <ul class="list-disc ml-6 text-sm text-gray-700 space-y-1">${topProb}</ul>
+          </section>
+          <section class="bg-white rounded-2xl p-4 shadow">
+            <h2 class="font-bold text-lg mb-2">💰 Top 5 Value</h2>
+            <ul class="list-disc ml-6 text-sm text-gray-700 space-y-1">${topValue}</ul>
+          </section>
+        `;
+      }
+
+      function renderGames(games) {
+        gamesContainer.innerHTML = games
+          .map(g => {
+            const bestTipIndex = [g.value.home, g.value.draw, g.value.away].indexOf(
+              Math.max(g.value.home, g.value.draw, g.value.away)
+            );
+            const tipNames = ["Heimsieg", "Unentschieden", "Auswärtssieg"];
+            const tip = tipNames[bestTipIndex];
+            const probPercent = Math.max(
+              g.prob.home,
+              g.prob.draw,
+              g.prob.away
+            ) * 100;
+
+            return `
+              <div class="bg-white rounded-2xl shadow p-4">
+                <div class="flex justify-between items-center mb-2">
+                  <h3 class="font-semibold text-lg">${g.home} vs ${g.away}</h3>
+                  <span class="text-sm text-gray-500">${g.league}</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <p class="text-sm text-gray-500">Heim xG:</p>
+                    <div class="w-full bg-gray-200 h-2 rounded-full">
+                      <div class="bg-blue-500 h-2 rounded-full" style="width: ${Math.min(
+                        g.homeXG * 50,
+                        100
+                      )}%"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <p class="text-sm text-gray-500">Auswärts xG:</p>
+                    <div class="w-full bg-gray-200 h-2 rounded-full">
+                      <div class="bg-red-500 h-2 rounded-full" style="width: ${Math.min(
+                        g.awayXG * 50,
+                        100
+                      )}%"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="text-sm text-gray-600 mb-2">
+                  📈 <b>${tip}</b> – ${(probPercent).toFixed(1)}% Wahrscheinlichkeit
+                </div>
+
+                <div class="flex flex-wrap gap-2 text-xs">
+                  <span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">Over 2.5: ${(g.prob.over25 * 100).toFixed(1)}%</span>
+                  <span class="bg-amber-100 text-amber-700 px-2 py-1 rounded-full">BTTS Ja: ${(g.prob.btts * 100).toFixed(1)}%</span>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+      }
+    </script>
+  </body>
 </html>
