@@ -25,14 +25,7 @@
           <select
             id="league"
             class="border border-gray-300 rounded-lg px-2 py-1 text-sm"
-          >
-            <option value="soccer_uefa_champs_league">
-              UEFA Champions League
-            </option>
-            <option value="soccer_epl">Premier League</option>
-            <option value="soccer_germany_bundesliga">Bundesliga</option>
-            <option value="soccer_spain_la_liga">La Liga</option>
-          </select>
+          ></select>
           <button
             id="load"
             class="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700"
@@ -62,6 +55,25 @@
 
       dateInput.valueAsDate = new Date();
 
+      // --- 🏆 Ligen dynamisch laden ---
+      async function loadLeagues() {
+        try {
+          const res = await fetch("/api/leagues");
+          const leagues = await res.json();
+
+          leagues.forEach(l => {
+            const opt = document.createElement("option");
+            opt.value = l.key;
+            opt.textContent = l.name;
+            leagueSelect.appendChild(opt);
+          });
+        } catch (err) {
+          console.error("Fehler beim Laden der Ligen:", err);
+        }
+      }
+      loadLeagues();
+
+      // --- 🎯 Spiele laden ---
       loadBtn.addEventListener("click", loadGames);
 
       async function loadGames() {
@@ -90,6 +102,7 @@
         }
       }
 
+      // --- 🧮 Zusammenfassung ---
       function renderSummary(games) {
         const topProb = [...games]
           .sort((a, b) =>
@@ -147,6 +160,7 @@
         `;
       }
 
+      // --- ⚽ Spielkarten ---
       function renderGames(games) {
         gamesContainer.innerHTML = games
           .map(g => {
@@ -190,7 +204,7 @@
                 </div>
 
                 <div class="text-sm text-gray-600 mb-2">
-                  📈 <b>${tip}</b> – ${(probPercent).toFixed(1)}% Wahrscheinlichkeit
+                  📈 <b>${tip}</b> – ${probPercent.toFixed(1)}% Wahrscheinlichkeit
                 </div>
 
                 <div class="flex flex-wrap gap-2 text-xs">
