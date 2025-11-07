@@ -38,17 +38,65 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">🏆 Ligen (Mehrfachauswahl)</label>
                     <select id="league-select" multiple
-                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32">
-                        <option value="soccer_epl">Premier League</option>
-                        <option value="soccer_germany_bundesliga">Bundesliga</option>
-                        <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
-                        <option value="soccer_spain_la_liga">La Liga</option>
-                        <option value="soccer_italy_serie_a">Serie A</option>
-                        <option value="soccer_france_ligue_one">Ligue 1</option>
-                        <option value="soccer_netherlands_eredivisie">Eredivisie</option>
-                        <option value="soccer_uefa_champs_league">Champions League</option>
+                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent h-48">
+                        <!-- EUROPÄISCHE TOP-LIGEN -->
+                        <optgroup label="🏴󠁧󠁢󠁥󠁮󠁧󠁿 England">
+                            <option value="soccer_epl">Premier League</option>
+                            <option value="soccer_efl_champ">Championship</option>
+                            <option value="soccer_england_league1">League One</option>
+                            <option value="soccer_england_league2">League Two</option>
+                        </optgroup>
+                        
+                        <optgroup label="🇩🇪 Deutschland">
+                            <option value="soccer_germany_bundesliga">Bundesliga</option>
+                            <option value="soccer_germany_2_bundesliga">2. Bundesliga</option>
+                        </optgroup>
+                        
+                        <optgroup label="🇪🇸 Spanien & 🇮🇹 Italien">
+                            <option value="soccer_spain_la_liga">La Liga</option>
+                            <option value="soccer_italy_serie_a">Serie A</option>
+                        </optgroup>
+                        
+                        <optgroup label="🇫🇷 Frankreich & 🇳🇱 Niederlande">
+                            <option value="soccer_france_ligue_one">Ligue 1</option>
+                            <option value="soccer_netherlands_eredivisie">Eredivisie</option>
+                        </optgroup>
+                        
+                        <optgroup label="🌍 Weitere Europa">
+                            <option value="soccer_portugal_primeira_liga">Primeira Liga</option>
+                            <option value="soccer_belgium_first_div">Jupiler Pro League</option>
+                            <option value="soccer_scotland_premier_league">Scottish Premiership</option>
+                            <option value="soccer_turkey_super_league">Süper Lig</option>
+                            <option value="soccer_russia_premier_league">Russian Premier League</option>
+                            <option value="soccer_switzerland_superleague">Swiss Super League</option>
+                            <option value="soccer_austria_bundesliga">Austrian Bundesliga</option>
+                            <option value="soccer_denmark_superliga">Danish Superliga</option>
+                            <option value="soccer_norway_eliteserien">Eliteserien</option>
+                            <option value="soccer_sweden_allsvenskan">Allsvenskan</option>
+                        </optgroup>
+                        
+                        <optgroup label="🇺🇸 Amerika & 🌏 Asien">
+                            <option value="soccer_usa_mls">MLS (USA)</option>
+                            <option value="soccer_brazil_campeonato">Brasileirão</option>
+                            <option value="soccer_argentina_primera_division">Liga Profesional</option>
+                            <option value="soccer_mexico_ligamx">Liga MX</option>
+                            <option value="soccer_japan_j1_league">J1 League</option>
+                            <option value="soccer_australia_aleague">A-League</option>
+                        </optgroup>
+                        
+                        <optgroup label="🏆 Europapokal">
+                            <option value="soccer_uefa_champs_league">Champions League</option>
+                            <option value="soccer_uefa_europa_league">Europa League</option>
+                            <option value="soccer_uefa_europa_conference_league">Conference League</option>
+                        </optgroup>
+                        
+                        <optgroup label="🌍 International">
+                            <option value="soccer_fifa_world_cup">World Cup</option>
+                            <option value="soccer_euro">European Championship</option>
+                            <option value="soccer_copa_america">Copa America</option>
+                        </optgroup>
                     </select>
-                    <p class="text-xs text-gray-500 mt-1">Halte Strg/Cmd für Mehrfachauswahl</p>
+                    <p class="text-xs text-gray-500 mt-1">Halte Strg/Cmd für Mehrfachauswahl • 40+ Ligen verfügbar</p>
                 </div>
                 
                 <div>
