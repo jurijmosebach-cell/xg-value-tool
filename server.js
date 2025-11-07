@@ -1,4 +1,4 @@
-// server.js - VERBESSERTE VERSION
+// server.js - ERWEITERTE VERSION mit 40+ Ligen
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -24,10 +24,9 @@ const PORT = process.env.PORT || 10000;
 const DATA_DIR = path.join(__dirname, "data");
 const TEAMS_FILE = path.join(DATA_DIR, "teams.json");
 
-// ------------------------------------------------------
-// VERBESSERTE Ligen-Daten mit realistischen xG-Basen
-// ------------------------------------------------------
+// ERWEITERTE Ligen-Daten mit 40+ Ligen
 const LEAGUES = [
+  // EUROPÄISCHE TOP-LIGEN
   { key: "soccer_epl", name: "Premier League", id: 39, baseXG: [1.65, 1.30], avgGoals: 2.85 },
   { key: "soccer_germany_bundesliga", name: "Bundesliga", id: 78, baseXG: [1.75, 1.45], avgGoals: 3.20 },
   { key: "soccer_germany_2_bundesliga", name: "2. Bundesliga", id: 79, baseXG: [1.60, 1.50], avgGoals: 3.10 },
@@ -35,20 +34,58 @@ const LEAGUES = [
   { key: "soccer_italy_serie_a", name: "Serie A", id: 135, baseXG: [1.55, 1.30], avgGoals: 2.85 },
   { key: "soccer_france_ligue_one", name: "Ligue 1", id: 61, baseXG: [1.50, 1.25], avgGoals: 2.75 },
   { key: "soccer_netherlands_eredivisie", name: "Eredivisie", id: 88, baseXG: [1.70, 1.55], avgGoals: 3.25 },
-  { key: "soccer_sweden_allsvenskan", name: "Allsvenskan", id: 113, baseXG: [1.55, 1.40], avgGoals: 2.95 },
-  { key: "soccer_turkey_super_league", name: "Turkish Süper Lig", id: 203, baseXG: [1.60, 1.45], avgGoals: 3.05 },
-  { key: "soccer_usa_mls", name: "MLS (USA)", id: 253, baseXG: [1.65, 1.50], avgGoals: 3.15 },
-  { key: "soccer_uefa_champs_league", name: "UEFA Champions League", id: 2, baseXG: [1.60, 1.40], avgGoals: 3.00 },
-  { key: "soccer_uefa_europa_conference_league", name: "UEFA Europa Conference League", id: 848, baseXG: [1.55, 1.35], avgGoals: 2.90 },
+  { key: "soccer_portugal_primeira_liga", name: "Primeira Liga", id: 94, baseXG: [1.55, 1.35], avgGoals: 2.90 },
+  { key: "soccer_belgium_first_div", name: "Jupiler Pro League", id: 144, baseXG: [1.60, 1.45], avgGoals: 3.05 },
+  
+  // EUROPÄISCHE MITTELKLASSE
+  { key: "soccer_russia_premier_league", name: "Russian Premier League", id: 235, baseXG: [1.45, 1.25], avgGoals: 2.70 },
+  { key: "soccer_switzerland_superleague", name: "Swiss Super League", id: 207, baseXG: [1.60, 1.50], avgGoals: 3.10 },
+  { key: "soccer_austria_bundesliga", name: "Austrian Bundesliga", id: 218, baseXG: [1.65, 1.55], avgGoals: 3.20 },
+  { key: "soccer_denmark_superliga", name: "Danish Superliga", id: 119, baseXG: [1.55, 1.45], avgGoals: 3.00 },
+  { key: "soccer_norway_eliteserien", name: "Eliteserien", id: 103, baseXG: [1.60, 1.50], avgGoals: 3.10 },
+  { key: "soccer_sweden_allsvenskan", name: "Allsvenskan", id: 113, baseXG: [1.55, 1.45], avgGoals: 3.00 },
+  { key: "soccer_finland_veikkausliiga", name: "Veikkausliiga", id: 322, baseXG: [1.50, 1.40], avgGoals: 2.90 },
+  { key: "soccer_poland_ekstraklasa", name: "Ekstraklasa", id: 106, baseXG: [1.45, 1.35], avgGoals: 2.80 },
+  { key: "soccer_czech_liga", name: "Czech First League", id: 345, baseXG: [1.50, 1.40], avgGoals: 2.90 },
+  { key: "soccer_greece_super_league", name: "Super League Greece", id: 197, baseXG: [1.40, 1.25], avgGoals: 2.65 },
+  { key: "soccer_turkey_super_league", name: "Süper Lig", id: 203, baseXG: [1.55, 1.40], avgGoals: 2.95 },
+  
+  // UK & IRELAND
+  { key: "soccer_efl_champ", name: "Championship", id: 40, baseXG: [1.50, 1.35], avgGoals: 2.85 },
+  { key: "soccer_england_league1", name: "League One", id: 41, baseXG: [1.45, 1.30], avgGoals: 2.75 },
+  { key: "soccer_england_league2", name: "League Two", id: 42, baseXG: [1.40, 1.25], avgGoals: 2.65 },
+  { key: "soccer_scotland_premier_league", name: "Scottish Premiership", id: 179, baseXG: [1.55, 1.35], avgGoals: 2.90 },
+  { key: "soccer_ireland_premier_division", name: "League of Ireland", id: 382, baseXG: [1.45, 1.35], avgGoals: 2.80 },
+  
+  // SÜDAMERIKA
+  { key: "soccer_brazil_campeonato", name: "Brasileirão", id: 71, baseXG: [1.45, 1.30], avgGoals: 2.75 },
+  { key: "soccer_argentina_primera_division", name: "Liga Profesional", id: 128, baseXG: [1.40, 1.25], avgGoals: 2.65 },
+  { key: "soccer_colombia_primera_a", name: "Liga Dimayor", id: 239, baseXG: [1.35, 1.20], avgGoals: 2.55 },
+  { key: "soccer_mexico_ligamx", name: "Liga MX", id: 262, baseXG: [1.50, 1.35], avgGoals: 2.85 },
+  { key: "soccer_usa_mls", name: "MLS", id: 253, baseXG: [1.60, 1.45], avgGoals: 3.05 },
+  
+  // ASIEN & ANDERE
+  { key: "soccer_japan_j1_league", name: "J1 League", id: 98, baseXG: [1.55, 1.40], avgGoals: 2.95 },
+  { key: "soccer_korea_kleague1", name: "K League 1", id: 292, baseXG: [1.45, 1.35], avgGoals: 2.80 },
+  { key: "soccer_australia_aleague", name: "A-League", id: 203, baseXG: [1.60, 1.50], avgGoals: 3.10 },
+  { key: "soccer_saudi_arabia_pro_league", name: "Saudi Pro League", id: 307, baseXG: [1.50, 1.40], avgGoals: 2.90 },
+  { key: "soccer_uae_pro_league", name: "UAE Pro League", id: 348, baseXG: [1.45, 1.35], avgGoals: 2.80 },
+  
+  // EUROPAPOKAL & WETTBEWERBE
+  { key: "soccer_uefa_champs_league", name: "Champions League", id: 2, baseXG: [1.60, 1.40], avgGoals: 3.00 },
+  { key: "soccer_uefa_europa_league", name: "Europa League", id: 3, baseXG: [1.55, 1.35], avgGoals: 2.90 },
+  { key: "soccer_uefa_europa_conference_league", name: "Conference League", id: 848, baseXG: [1.50, 1.30], avgGoals: 2.80 },
+  { key: "soccer_uefa_champs_league_qualification", name: "CL Qualification", id: 17, baseXG: [1.45, 1.25], avgGoals: 2.70 },
+  { key: "soccer_fifa_world_cup", name: "World Cup", id: 15, baseXG: [1.40, 1.20], avgGoals: 2.60 },
+  { key: "soccer_euro", name: "European Championship", id: 10, baseXG: [1.45, 1.25], avgGoals: 2.70 },
+  { key: "soccer_copa_america", name: "Copa America", id: 9, baseXG: [1.40, 1.20], avgGoals: 2.60 },
 ];
 
 const CACHE = {};
 const TEAM_CACHE = {};
 let TEAM_IDS = {};
 
-// ------------------------------------------------------
 // VERBESSERTE Mathefunktionen
-// ------------------------------------------------------
 function factorial(n) { 
   if (n === 0) return 1;
   let result = 1;
@@ -60,11 +97,10 @@ function poisson(k, λ) {
   return (Math.pow(λ, k) * Math.exp(-λ)) / factorial(k); 
 }
 
-// VERBESSERTE Wahrscheinlichkeitsberechnung mit mehr Realismus
+// VERBESSERTE Wahrscheinlichkeitsberechnung
 function computeMatchProb(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 8) {
   let pHome = 0, pDraw = 0, pAway = 0;
   
-  // Form-Bonus/Malus anwenden
   const homeAdj = homeXG * (0.8 + homeForm * 0.4);
   const awayAdj = awayXG * (0.8 + awayForm * 0.4);
   
@@ -77,7 +113,6 @@ function computeMatchProb(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 
     }
   }
   
-  // Normalisieren auf 100%
   const total = pHome + pDraw + pAway;
   return { 
     home: pHome / total, 
@@ -97,7 +132,7 @@ function probOver25(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 8) {
       if (h + a > 2.5) p += poisson(h, homeAdj) * poisson(a, awayAdj);
     }
   }
-  return Math.min(p, 0.95); // Max 95% begrenzen
+  return Math.min(p, 0.95);
 }
 
 // VERBESSERTE BTTS Berechnung
@@ -111,7 +146,7 @@ function bttsProbExact(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 6) 
       p += poisson(h, homeAdj) * poisson(a, awayAdj);
     }
   }
-  return Math.min(p, 0.90); // Max 90% begrenzen
+  return Math.min(p, 0.90);
 }
 
 // NEUE Funktion: Erwartete Tore berechnen
@@ -120,11 +155,9 @@ function expectedGoals(homeOdds, awayOdds, leagueAvgGoals, homeForm, awayForm) {
   const impliedAway = 1 / awayOdds;
   const totalImplied = impliedHome + impliedAway;
   
-  // Verteilung basierend auf Odds
   const homeShare = impliedHome / totalImplied;
   const awayShare = impliedAway / totalImplied;
   
-  // Basis xG aus Liga-Durchschnitt + Form-Einfluss
   const baseHomeXG = (leagueAvgGoals * homeShare) * (0.9 + homeForm * 0.2);
   const baseAwayXG = (leagueAvgGoals * awayShare) * (0.9 + awayForm * 0.2);
   
@@ -134,9 +167,7 @@ function expectedGoals(homeOdds, awayOdds, leagueAvgGoals, homeForm, awayForm) {
   };
 }
 
-// ------------------------------------------------------
-// Teams speichern/laden (unverändert)
-// ------------------------------------------------------
+// Teams speichern/laden
 async function loadOrFetchTeams(forceReload = false) {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
@@ -176,9 +207,7 @@ async function loadOrFetchTeams(forceReload = false) {
   console.log(`💾 Gespeichert unter data/teams.json (${Object.keys(allTeams).length} Teams).`);
 }
 
-// ------------------------------------------------------
 // VERBESSERTE Teamform Berechnung
-// ------------------------------------------------------
 async function getTeamForm(teamName) {
   const teamId = TEAM_IDS[teamName];
   if (!teamId || !API_FOOTBALL_KEY) return 0.5;
@@ -197,17 +226,15 @@ async function getTeamForm(teamName) {
     let totalWeight = 0;
 
     fixtures.forEach((f, index) => {
-      const weight = 1 - (index * 0.1); // Neuere Spiele stärker gewichtet
+      const weight = 1 - (index * 0.1);
       const isHome = f.teams.home.id === teamId;
       const goalsFor = isHome ? f.goals.home : f.goals.away;
       const goalsAgainst = isHome ? f.goals.away : f.goals.home;
       
-      // Punkte basierend auf Ergebnis und Tordifferenz
       let points = 0;
       if (goalsFor > goalsAgainst) points = 1.0;
       else if (goalsFor === goalsAgainst) points = 0.5;
       
-      // Tordifferenz-Bonus
       const goalDiffBonus = Math.min(0.2, (goalsFor - goalsAgainst) * 0.05);
       
       formScore += (points + goalDiffBonus) * weight;
@@ -223,9 +250,7 @@ async function getTeamForm(teamName) {
   }
 }
 
-// ------------------------------------------------------
 // VERBESSERTE /api/games Route
-// ------------------------------------------------------
 app.get("/api/games", async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const date = req.query.date || today;
@@ -268,17 +293,14 @@ app.get("/api/games", async (req, res) => {
         const homeForm = await getTeamForm(home);
         const awayForm = await getTeamForm(away);
 
-        // VERBESSERTE xG Berechnung
         const expected = expectedGoals(odds.home, odds.away, league.avgGoals, homeForm, awayForm);
         const homeXG = expected.home;
         const awayXG = expected.away;
 
-        // VERBESSERTE Wahrscheinlichkeiten
         const prob = computeMatchProb(homeXG, awayXG, homeForm, awayForm);
         prob.over25 = probOver25(homeXG, awayXG, homeForm, awayForm);
         prob.btts = bttsProbExact(homeXG, awayXG, homeForm, awayForm);
 
-        // Value Berechnung (unverändert)
         const value = {
           home: prob.home * odds.home - 1,
           draw: prob.draw * odds.draw - 1,
@@ -309,9 +331,7 @@ app.get("/api/games", async (req, res) => {
   res.json({ response: games });
 });
 
-// ------------------------------------------------------
 // Start
-// ------------------------------------------------------
 await loadOrFetchTeams();
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT}`));
