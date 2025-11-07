@@ -14,7 +14,7 @@ refreshBtn.addEventListener("click", loadMatches);
 // NEUE Funktion: Confidence Level berechnen
 function getConfidenceLevel(probability, value) {
     const baseConfidence = probability * 100;
-    const valueBonus = Math.max(0, value) * 50; // Value gibt Extra-Bonus
+    const valueBonus = Math.max(0, value) * 50;
     const total = baseConfidence + valueBonus;
     
     if (total > 80) return { level: "SEHR HOCH", color: "text-green-600", emoji: "🎯" };
@@ -70,9 +70,7 @@ async function loadMatches() {
             return;
         }
 
-        // -----------------------------
-        // VERBESSERTE Top 10 Wahrscheinlichkeit
-        // -----------------------------
+        // Top 10 Wahrscheinlichkeit
         const top10 = [...games]
             .map(g => {
                 const best =
@@ -83,7 +81,7 @@ async function loadMatches() {
                         : { type: "X", val: g.prob.draw, value: g.value.draw };
                 return { ...g, best };
             })
-            .filter(g => g.best.val > 0.4) // Nur plausible Wahrscheinlichkeiten
+            .filter(g => g.best.val > 0.4)
             .sort((a, b) => (b.best.val + b.best.value) - (a.best.val + a.best.value))
             .slice(0, 10);
 
@@ -104,9 +102,7 @@ async function loadMatches() {
             matchList.appendChild(top10Section);
         }
 
-        // -----------------------------
-        // VERBESSERTE Top 5 Value
-        // -----------------------------
+        // Top 5 Value
         const topValue = [...games]
             .map(g => {
                 const markets = [
@@ -119,7 +115,7 @@ async function loadMatches() {
                 const best = markets.reduce((a, b) => b.val > a.val ? b : a);
                 return { ...g, bestValue: best };
             })
-            .filter(g => g.bestValue.val > 0.1 && g.bestValue.prob > 0.3) // Nur gute Value mit plausibler Wahrscheinlichkeit
+            .filter(g => g.bestValue.val > 0.1 && g.bestValue.prob > 0.3)
             .sort((a, b) => b.bestValue.val - a.bestValue.val)
             .slice(0, 5);
 
@@ -140,9 +136,7 @@ async function loadMatches() {
             matchList.appendChild(topValueSection);
         }
 
-        // -----------------------------
         // STARKE TRENDS Sektion
-        // -----------------------------
         const strongTrendGames = games
             .map(g => {
                 const trends = getStrongTrends(g);
@@ -171,9 +165,7 @@ async function loadMatches() {
             matchList.appendChild(trendsSection);
         }
 
-        // -----------------------------
         // Restliche Spiele
-        // -----------------------------
         const restGames = games.filter(g => 
             !top10.some(t => t.home === g.home && t.away === g.away) &&
             !topValue.some(t => t.home === g.home && t.away === g.away) &&
@@ -196,7 +188,6 @@ async function loadMatches() {
                 const overVal = g.prob.over25 * 100;
                 const bttsVal = g.prob.btts * 100;
 
-                // Beste Empfehlung finden
                 const markets = [
                     { type: "1", prob: g.prob.home, value: g.value.home },
                     { type: "X", prob: g.prob.draw, value: g.value.draw },
@@ -229,7 +220,6 @@ async function loadMatches() {
                         </div>
                     </div>
 
-                    <!-- Wahrscheinlichkeits-Balken -->
                     <div class="space-y-3">
                         <div>
                             <div class="flex justify-between text-sm mb-1">
