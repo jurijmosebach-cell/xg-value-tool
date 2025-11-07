@@ -11,180 +11,277 @@ dateInput.value = today;
 // Klick auf "Spiele laden"
 refreshBtn.addEventListener("click", loadMatches);
 
+// NEUE Funktion: Confidence Level berechnen
+function getConfidenceLevel(probability, value) {
+    const baseConfidence = probability * 100;
+    const valueBonus = Math.max(0, value) * 50; // Value gibt Extra-Bonus
+    const total = baseConfidence + valueBonus;
+    
+    if (total > 80) return { level: "SEHR HOCH", color: "text-green-600", emoji: "🎯" };
+    if (total > 65) return { level: "HOCH", color: "text-blue-600", emoji: "🔥" };
+    if (total > 50) return { level: "MEDIUM", color: "text-yellow-600", emoji: "⚡" };
+    return { level: "NIEDRIG", color: "text-gray-500", emoji: "💡" };
+}
+
+// NEUE Funktion: Starke Trends identifizieren
+function getStrongTrends(game) {
+    const trends = [];
+    const { prob, value } = game;
+    
+    // Sieg/Unentschieden Trends
+    if (prob.home > 0.6 && value.home > 0.1) trends.push({ type: "1", confidence: "HOCH" });
+    if (prob.away > 0.6 && value.away > 0.1) trends.push({ type: "2", confidence: "HOCH" });
+    if (prob.draw > 0.35 && value.draw > 0.15) trends.push({ type: "X", confidence: "HOCH" });
+    
+    // Over/Under Trends
+    if (prob.over25 > 0.7 && value.over25 > 0.1) trends.push({ type: "OVER", confidence: "HOCH" });
+    if (prob.over25 < 0.3 && value.over25 < -0.2) trends.push({ type: "UNDER", confidence: "MEDIUM" });
+    
+    // BTTS Trends
+    if (prob.btts > 0.65 && value.btts > 0.1) trends.push({ type: "BTTS_JA", confidence: "HOCH" });
+    if (prob.btts < 0.35 && value.btts < -0.2) trends.push({ type: "BTTS_NEIN", confidence: "MEDIUM" });
+    
+    return trends;
+}
+
 async function loadMatches() {
-  const date = dateInput.value;
-  const leagues = Array.from(leagueSelect.selectedOptions).map(o => o.value);
+    const date = dateInput.value;
+    const leagues = Array.from(leagueSelect.selectedOptions).map(o => o.value);
 
-  if (!date) {
-    statusDiv.textContent = "Bitte Datum wählen!";
-    return;
-  }
-  if (leagues.length === 0) {
-    statusDiv.textContent = "Bitte mindestens eine Liga wählen!";
-    return;
-  }
-
-  statusDiv.textContent = "Lade Spiele...";
-  matchList.innerHTML = "";
-
-  try {
-    const res = await fetch(`/api/games?date=${date}&leagues=${leagues.join(",")}`);
-    const data = await res.json();
-    const games = data.response;
-
-    if (!games || games.length === 0) {
-      statusDiv.textContent = "Keine Spiele gefunden.";
-      return;
+    if (!date) {
+        statusDiv.textContent = "Bitte Datum wählen!";
+        return;
+    }
+    if (leagues.length === 0) {
+        statusDiv.textContent = "Bitte mindestens eine Liga wählen!";
+        return;
     }
 
-    // -----------------------------
-    // Top 10 Wahrscheinlichkeit
-    // -----------------------------
-    const top10 = [...games]
-      .map(g => {
-        const best =
-          g.prob.home > g.prob.away && g.prob.home > g.prob.draw
-            ? { type: "1", val: g.prob.home }
-            : g.prob.away > g.prob.home && g.prob.away > g.prob.draw
-            ? { type: "2", val: g.prob.away }
-            : { type: "X", val: g.prob.draw };
-        return { ...g, best };
-      })
-      .sort((a, b) => b.best.val - a.best.val)
-      .slice(0, 10);
+    statusDiv.textContent = "Lade Spiele...";
+    matchList.innerHTML = "";
 
-    const top10Section = document.createElement("div");
-    top10Section.className = "top-section";
-    top10Section.innerHTML = `<h2>🏅 Top 10 Wahrscheinlichkeit</h2>
-      <ul>${top10.map(g=>`<li>${g.home} vs ${g.away} → Tipp <b>${g.best.type}</b> ${(g.best.val*100).toFixed(1)}%</li>`).join("")}</ul>`;
-    matchList.appendChild(top10Section);
+    try {
+        const res = await fetch(`/api/games?date=${date}&leagues=${leagues.join(",")}`);
+        const data = await res.json();
+        const games = data.response;
 
-    // -----------------------------
-    // Top 5 Value
-    // -----------------------------
-    const topValue = [...games]
-      .sort((a,b)=>{
-        const maxA = Math.max(a.value.home, a.value.draw, a.value.away, a.value.over25, a.value.btts);
-        const maxB = Math.max(b.value.home, b.value.draw, b.value.away, b.value.over25, b.value.btts);
-        return maxB - maxA;
-      })
-      .slice(0,5);
+        if (!games || games.length === 0) {
+            statusDiv.textContent = "Keine Spiele gefunden.";
+            return;
+        }
 
-    const topValueSection = document.createElement("div");
-    topValueSection.className="top-section";
-    topValueSection.innerHTML=`<h2>💰 Top 5 Value</h2>
-      <ul>${topValue.map(g=>{
-        const vals=[{type:"1",val:g.value.home},{type:"X",val:g.value.draw},{type:"2",val:g.value.away},{type:"Over 2.5",val:g.value.over25},{type:"BTTS",val:g.value.btts}];
-        const bestVal=vals.reduce((a,b)=>b.val>a.val?b:a);
-        return `<li>${g.home} vs ${g.away} → Beste Value: <b>${bestVal.type}</b> ${(bestVal.val*100).toFixed(1)}%</li>`;
-      }).join("")}</ul>`;
-    matchList.appendChild(topValueSection);
+        // -----------------------------
+        // VERBESSERTE Top 10 Wahrscheinlichkeit
+        // -----------------------------
+        const top10 = [...games]
+            .map(g => {
+                const best =
+                    g.prob.home > g.prob.away && g.prob.home > g.prob.draw
+                        ? { type: "1", val: g.prob.home, value: g.value.home }
+                        : g.prob.away > g.prob.home && g.prob.away > g.prob.draw
+                        ? { type: "2", val: g.prob.away, value: g.value.away }
+                        : { type: "X", val: g.prob.draw, value: g.value.draw };
+                return { ...g, best };
+            })
+            .filter(g => g.best.val > 0.4) // Nur plausible Wahrscheinlichkeiten
+            .sort((a, b) => (b.best.val + b.best.value) - (a.best.val + a.best.value))
+            .slice(0, 10);
 
-    // -----------------------------
-    // Top 5 Over 2.5
-    // -----------------------------
-    const topOver = [...games].sort((a,b)=>b.prob.over25 - a.prob.over25).slice(0,5);
-    const topOverSection = document.createElement("div");
-    topOverSection.className="top-section";
-    topOverSection.innerHTML=`<h2>🔝 Top 5 Over 2.5</h2>
-      <ul>${topOver.map(g=>`<li>${g.home} vs ${g.away} → ${(g.prob.over25*100).toFixed(1)}%</li>`).join("")}</ul>`;
-    matchList.appendChild(topOverSection);
+        if (top10.length > 0) {
+            const top10Section = document.createElement("div");
+            top10Section.className = "top-section bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500";
+            top10Section.innerHTML = `<h2 class="text-xl font-bold text-gray-800">🏅 Top 10 Wahrscheinlichkeit</h2>
+                <div class="space-y-2 mt-3">${top10.map(g => {
+                    const confidence = getConfidenceLevel(g.best.val, g.best.value);
+                    return `<div class="flex justify-between items-center p-2 bg-white rounded-lg border">
+                        <div>
+                            <span class="font-semibold">${g.home} vs ${g.away}</span>
+                            <br><span class="text-sm text-gray-600">Tipp <b class="text-blue-600">${g.best.type}</b> - ${(g.best.val * 100).toFixed(1)}%</span>
+                        </div>
+                        <span class="${confidence.color} font-bold text-sm">${confidence.emoji} ${confidence.level}</span>
+                    </div>`;
+                }).join("")}</div>`;
+            matchList.appendChild(top10Section);
+        }
 
-    // -----------------------------
-    // Top 5 BTTS
-    // -----------------------------
-    const topBTTS = [...games].sort((a,b)=>b.prob.btts - a.prob.btts).slice(0,5);
-    const topBTTSSection = document.createElement("div");
-    topBTTSSection.className="top-section";
-    topBTTSSection.innerHTML=`<h2>⚡ Top 5 BTTS</h2>
-      <ul>${topBTTS.map(g=>`<li>${g.home} vs ${g.away} → BTTS Ja ${(g.prob.btts*100).toFixed(1)}%</li>`).join("")}</ul>`;
-    matchList.appendChild(topBTTSSection);
+        // -----------------------------
+        // VERBESSERTE Top 5 Value
+        // -----------------------------
+        const topValue = [...games]
+            .map(g => {
+                const markets = [
+                    { type: "1", val: g.value.home, prob: g.prob.home },
+                    { type: "X", val: g.value.draw, prob: g.prob.draw },
+                    { type: "2", val: g.value.away, prob: g.prob.away },
+                    { type: "Over 2.5", val: g.value.over25, prob: g.prob.over25 },
+                    { type: "BTTS Ja", val: g.value.btts, prob: g.prob.btts }
+                ];
+                const best = markets.reduce((a, b) => b.val > a.val ? b : a);
+                return { ...g, bestValue: best };
+            })
+            .filter(g => g.bestValue.val > 0.1 && g.bestValue.prob > 0.3) // Nur gute Value mit plausibler Wahrscheinlichkeit
+            .sort((a, b) => b.bestValue.val - a.bestValue.val)
+            .slice(0, 5);
 
-    // -----------------------------
-    // Restliche Spiele pro Liga
-    // -----------------------------
-    const restSection = document.createElement("div");
-    restSection.className="top-section";
-    restSection.innerHTML="<h2>🗂 Restliche Spiele</h2>";
-    matchList.appendChild(restSection);
+        if (topValue.length > 0) {
+            const topValueSection = document.createElement("div");
+            topValueSection.className = "top-section bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500";
+            topValueSection.innerHTML = `<h2 class="text-xl font-bold text-gray-800">💰 Top 5 Value Wetten</h2>
+                <div class="space-y-2 mt-3">${topValue.map(g => {
+                    const confidence = getConfidenceLevel(g.bestValue.prob, g.bestValue.val);
+                    return `<div class="flex justify-between items-center p-2 bg-white rounded-lg border">
+                        <div>
+                            <span class="font-semibold">${g.home} vs ${g.away}</span>
+                            <br><span class="text-sm text-gray-600"><b class="text-green-600">${g.bestValue.type}</b> - Value: ${(g.bestValue.val * 100).toFixed(1)}%</span>
+                        </div>
+                        <span class="${confidence.color} font-bold text-sm">${confidence.emoji}</span>
+                    </div>`;
+                }).join("")}</div>`;
+            matchList.appendChild(topValueSection);
+        }
 
-    games.forEach(g=>{
-      const card=document.createElement("div");
-      card.className="match-card";
+        // -----------------------------
+        // STARKE TRENDS Sektion
+        // -----------------------------
+        const strongTrendGames = games
+            .map(g => {
+                const trends = getStrongTrends(g);
+                return { ...g, strongTrends: trends };
+            })
+            .filter(g => g.strongTrends.length > 0);
 
-      const homeVal = g.prob.home*100;
-      const drawVal = g.prob.draw*100;
-      const awayVal = g.prob.away*100;
-      const overVal = g.prob.over25*100;
-      const bttsVal = g.prob.btts*100;
+        if (strongTrendGames.length > 0) {
+            const trendsSection = document.createElement("div");
+            trendsSection.className = "top-section bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-purple-500";
+            trendsSection.innerHTML = `<h2 class="text-xl font-bold text-gray-800">📈 Starke Trends</h2>
+                <div class="space-y-3 mt-3">${strongTrendGames.map(g => `
+                    <div class="p-3 bg-white rounded-lg border">
+                        <div class="font-semibold text-lg">${g.home} vs ${g.away}</div>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            ${g.strongTrends.map(t => 
+                                `<span class="px-3 py-1 rounded-full text-sm font-medium ${
+                                    t.confidence === 'HOCH' 
+                                        ? 'bg-red-100 text-red-800 border border-red-300'
+                                        : 'bg-orange-100 text-orange-800 border border-orange-300'
+                                }">${t.type}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `).join('')}</div>`;
+            matchList.appendChild(trendsSection);
+        }
 
-      const trend = homeVal>awayVal && homeVal>drawVal ? "Heimsieg" : awayVal>homeVal && awayVal>drawVal ? "Auswärtssieg" : "Unentschieden";
-      const trendOver = overVal>50?"Over 2.5":"Under 2.5";
-      const trendBTTS = bttsVal>50?"BTTS JA":"BTTS NEIN";
+        // -----------------------------
+        // Restliche Spiele
+        // -----------------------------
+        const restGames = games.filter(g => 
+            !top10.some(t => t.home === g.home && t.away === g.away) &&
+            !topValue.some(t => t.home === g.home && t.away === g.away) &&
+            !strongTrendGames.some(t => t.home === g.home && t.away === g.away)
+        );
 
-      const bestChance=Math.max(homeVal,drawVal,awayVal,overVal,bttsVal);
-      const bestMarket=bestChance===homeVal?"1":bestChance===drawVal?"X":bestChance===awayVal?"2":bestChance===overVal?"Over 2.5":"BTTS Ja";
+        if (restGames.length > 0) {
+            const restSection = document.createElement("div");
+            restSection.className = "top-section";
+            restSection.innerHTML = `<h2 class="text-xl font-bold text-gray-800 mb-4">🗂 Weitere Spiele</h2>
+                <div class="grid gap-4 md:grid-cols-2">`;
+            
+            restGames.forEach(g => {
+                const card = document.createElement("div");
+                card.className = "match-card bg-white rounded-xl shadow-lg border p-4";
+                
+                const homeVal = g.prob.home * 100;
+                const drawVal = g.prob.draw * 100;
+                const awayVal = g.prob.away * 100;
+                const overVal = g.prob.over25 * 100;
+                const bttsVal = g.prob.btts * 100;
 
-      card.innerHTML=`
-        <div class="match-header mb-3">
-          <div class="team">
-            <img src="${g.homeLogo}" alt="${g.home}" />
-            <div>
-              <div class="team-name">${g.home}</div>
-              <div class="team-xg">${g.homeXG} xG</div>
-            </div>
-          </div>
-          <span class="text-xs bg-blue-200 text-blue-800 px-3 py-1 rounded-full">${g.league}</span>
-          <div class="team text-right">
-            <div>
-              <div class="team-name">${g.away}</div>
-              <div class="team-xg">${g.awayXG} xG</div>
-            </div>
-            <img src="${g.awayLogo}" alt="${g.away}" />
-          </div>
-        </div>
+                // Beste Empfehlung finden
+                const markets = [
+                    { type: "1", prob: g.prob.home, value: g.value.home },
+                    { type: "X", prob: g.prob.draw, value: g.value.draw },
+                    { type: "2", prob: g.prob.away, value: g.value.away },
+                    { type: "Over 2.5", prob: g.prob.over25, value: g.value.over25 },
+                    { type: "BTTS Ja", prob: g.prob.btts, value: g.value.btts }
+                ];
+                
+                const bestMarket = markets.reduce((a, b) => 
+                    (b.prob + b.value) > (a.prob + a.value) ? b : a
+                );
+                const confidence = getConfidenceLevel(bestMarket.prob, bestMarket.value);
 
-        <!-- Balken: Heim / Draw / Auswärts -->
-        <div class="bar-container mb-2">
-          <div class="bar-fill bar-home" style="width:${homeVal}%"></div>
-          <div class="bar-fill bar-draw" style="width:${drawVal}%"></div>
-          <div class="bar-fill bar-away" style="width:${awayVal}%"></div>
-          <div class="bar-text">
-            1:${homeVal.toFixed(1)}% | X:${drawVal.toFixed(1)}% | 2:${awayVal.toFixed(1)}%
-          </div>
-        </div>
+                card.innerHTML = `
+                    <div class="match-header mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-500">${g.league}</span>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">xG: ${g.totalXG}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="text-center">
+                                <div class="font-semibold">${g.home}</div>
+                                <div class="text-sm text-gray-600">${g.homeXG} xG</div>
+                            </div>
+                            <div class="text-gray-400 mx-2">vs</div>
+                            <div class="text-center">
+                                <div class="font-semibold">${g.away}</div>
+                                <div class="text-sm text-gray-600">${g.awayXG} xG</div>
+                            </div>
+                        </div>
+                    </div>
 
-        <div class="bar-container mb-2">
-          <div class="bar-fill bar-over" style="width:${overVal}%"></div>
-          <div class="bar-text">
-            Over:${overVal.toFixed(1)}% | Under:${(100-overVal).toFixed(1)}%
-          </div>
-        </div>
+                    <!-- Wahrscheinlichkeits-Balken -->
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Heimsieg</span>
+                                <span>${homeVal.toFixed(1)}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: ${homeVal}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Unentschieden</span>
+                                <span>${drawVal.toFixed(1)}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-yellow-500 h-2 rounded-full" style="width: ${drawVal}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Auswärtssieg</span>
+                                <span>${awayVal.toFixed(1)}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-red-500 h-2 rounded-full" style="width: ${awayVal}%"></div>
+                            </div>
+                        </div>
+                    </div>
 
-        <div class="bar-container">
-          <div class="bar-fill bar-btts-yes" style="width:${bttsVal}%"></div>
-          <div class="bar-text">
-            BTTS Ja:${bttsVal.toFixed(1)}% | Nein:${(100-bttsVal).toFixed(1)}%
-          </div>
-        </div>
+                    <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                        <div class="text-center font-semibold ${confidence.color}">
+                            ${confidence.emoji} Empfehlung: ${bestMarket.type}
+                        </div>
+                        <div class="text-center text-sm text-gray-600 mt-1">
+                            Confidence: ${confidence.level}
+                        </div>
+                    </div>
+                `;
+                restSection.appendChild(card);
+            });
+            
+            restSection.innerHTML += `</div>`;
+            matchList.appendChild(restSection);
+        }
 
-        <div class="trend">
-          <span class="trend-${trend==="Heimsieg"?"home":trend==="Auswärtssieg"?"away":"draw"}">${trend}</span>
-          <span class="trend-${trendOver.includes("Over")?"over":"under"}">${trendOver}</span>
-          <span class="trend-${trendBTTS.includes("JA")?"btts-yes":"btts-no"}">${trendBTTS}</span>
-        </div>
+        statusDiv.textContent = `${games.length} Spiele geladen!`;
 
-        <div class="text-center mt-3 font-semibold text-blue-600">
-          👉 Empfehlung: <span class="underline">${bestMarket}</span> (${bestChance.toFixed(1)}% Trefferchance)
-        </div>
-      `;
-      restSection.appendChild(card);
-    });
-
-    statusDiv.textContent=`${games.length} Spiele geladen!`;
-
-  } catch(err){
-    statusDiv.textContent="Fehler: "+err.message;
-    console.error(err);
-  }
+    } catch(err) {
+        statusDiv.textContent = "Fehler: " + err.message;
+        console.error(err);
+    }
 }
