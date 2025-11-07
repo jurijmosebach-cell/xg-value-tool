@@ -1,4 +1,4 @@
-// server.js - ERWEITERTE VERSION mit historischen Daten & KI
+// server.js - ERWEITERTE VERSION mit Head-to-Head & Live-Statistiken
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -18,7 +18,7 @@ const ODDS_API_KEY = process.env.ODDS_API_KEY;
 const API_FOOTBALL_KEY = process.env.API_FOOTBALL_KEY;
 
 if (!ODDS_API_KEY) console.error("FEHLER: ODDS_API_KEY fehlt!");
-if (!API_FOOTBALL_KEY) console.error("FEHLER: API_FOOTBALL_KEY fehlt – Teamform deaktiviert.");
+if (!API_FOOTBALL_KEY) console.error("FEHLER: API_FOOTBALL_KEY fehlt – Erweiterte Features deaktiviert.");
 
 const PORT = process.env.PORT || 10000;
 const DATA_DIR = path.join(__dirname, "data");
@@ -26,7 +26,7 @@ const TEAMS_FILE = path.join(DATA_DIR, "teams.json");
 const HISTORICAL_FILE = path.join(DATA_DIR, "historical_stats.json");
 const PERFORMANCE_FILE = path.join(DATA_DIR, "performance.json");
 
-// Ligen-Daten (wie vorher)
+// Ligen-Daten
 const LEAGUES = [
   { key: "soccer_epl", name: "Premier League", id: 39, baseXG: [1.65, 1.30], avgGoals: 2.85 },
   { key: "soccer_germany_bundesliga", name: "Bundesliga", id: 78, baseXG: [1.75, 1.45], avgGoals: 3.20 },
@@ -35,78 +35,276 @@ const LEAGUES = [
   { key: "soccer_italy_serie_a", name: "Serie A", id: 135, baseXG: [1.55, 1.30], avgGoals: 2.85 },
   { key: "soccer_france_ligue_one", name: "Ligue 1", id: 61, baseXG: [1.50, 1.25], avgGoals: 2.75 },
   { key: "soccer_netherlands_eredivisie", name: "Eredivisie", id: 88, baseXG: [1.70, 1.55], avgGoals: 3.25 },
-  { key: "soccer_portugal_primeira_liga", name: "Primeira Liga", id: 94, baseXG: [1.55, 1.35], avgGoals: 2.90 },
-  { key: "soccer_belgium_first_div", name: "Jupiler Pro League", id: 144, baseXG: [1.60, 1.45], avgGoals: 3.05 },
   { key: "soccer_uefa_champs_league", name: "Champions League", id: 2, baseXG: [1.60, 1.40], avgGoals: 3.00 },
 ];
 
 const CACHE = {};
 const TEAM_CACHE = {};
+const H2H_CACHE = {};
 let TEAM_IDS = {};
 let HISTORICAL_STATS = {};
 let PERFORMANCE_DATA = {};
 
-// NEUE FUNKTION: Lade historische Daten
+// NEUE FUNKTION: Head-to-Head Daten abrufen
+async function getHeadToHead(homeTeamId, awayTeamId) {
+    const cacheKey = `${homeTeamId}-${awayTeamId}`;
+    if (H2H_CACHE[cacheKey]) return H2H_CACHE[cacheKey];
+
+    if (!API_FOOTBALL_KEY) return null;
+
+    try {
+        const res = await fetch(
+            `https://v3.football.api-sports.io/fixtures/headtohead?h2h=${homeTeamId}-${awayTeamId}&last=10`,
+            { headers: { "x-apisports-key": API_FOOTBALL_KEY } }
+        );
+        const data = await res.json();
+        const h2hData = data.response || [];
+        
+        H2H_CACHE[cacheKey] = h2hData;
+        return h2hData;
+    } catch (err) {
+        console.error("Fehler beim H2H Abruf:", err.message);
+        return null;
+    }
+}
+
+// NEUE FUNKTION: Head-to-Head Analyse
+function analyzeHeadToHead(headToHeadGames, homeTeam, awayTeam) {
+    if (!headToHeadGames || headToHeadGames.length === 0) {
+        return {
+            available: false,
+            message: "Keine historischen Direktvergleiche verfügbar"
+        };
+    }
+
+    const stats = {
+        available: true,
+        totalGames: headToHeadGames.length,
+        homeWins: 0,
+        draws: 0,
+        awayWins: 0,
+        totalGoals: 0,
+        homeGoals: 0,
+        awayGoals: 0,
+        bttsGames: 0,
+        over25Games: 0,
+        recentGames: []
+    };
+
+    // Analysiere die letzten 5 Spiele für Trends
+    const recentGames = headToHeadGames.slice(0, 5);
+    
+    recentGames.forEach(game => {
+        const homeGoals = game.goals.home;
+        const awayGoals = game.goals.away;
+        const totalGoals = homeGoals + awayGoals;
+        
+        // Sieg/Unentschieden/Niederlage
+        if (homeGoals > awayGoals) stats.homeWins++;
+        else if (homeGoals === awayGoals) stats.draws++;
+        else stats.awayWins++;
+        
+        // Tore
+        stats.totalGoals += totalGoals;
+        stats.homeGoals += homeGoals;
+        stats.awayGoals += awayGoals;
+        
+        // BTTS und Over 2.5
+        if (homeGoals > 0 && awayGoals > 0) stats.bttsGames++;
+        if (totalGoals > 2.5) stats.over25Games++;
+        
+        // Speichere letzte Spiele für Details
+        stats.recentGames.push({
+            date: game.fixture.date.slice(0, 10),
+            result: `${homeGoals}-${awayGoals}`,
+            competition: game.league.name,
+            homeTeam: game.teams.home.name,
+            awayTeam: game.teams.away.name
+        });
+    });
+
+    // Berechne Prozente
+    stats.homeWinPercentage = (stats.homeWins / recentGames.length) * 100;
+    stats.drawPercentage = (stats.draws / recentGames.length) * 100;
+    stats.awayWinPercentage = (stats.awayWins / recentGames.length) * 100;
+    stats.avgGoals = stats.totalGoals / recentGames.length;
+    stats.bttsPercentage = (stats.bttsGames / recentGames.length) * 100;
+    stats.over25Percentage = (stats.over25Games / recentGames.length) * 100;
+    stats.avgHomeGoals = stats.homeGoals / recentGames.length;
+    stats.avgAwayGoals = stats.awayGoals / recentGames.length;
+
+    // Trend-Analyse
+    stats.trend = analyzeH2HTrend(stats);
+    stats.strength = calculateH2HStrength(stats);
+
+    return stats;
+}
+
+// NEUE FUNKTION: H2H Trend-Analyse
+function analyzeH2HTrend(stats) {
+    const trends = [];
+    
+    if (stats.homeWinPercentage > 60) {
+        trends.push("Starker Heimvorteil in Direktvergleichen");
+    }
+    if (stats.awayWinPercentage > 60) {
+        trends.push("Auswärtsstärke in Direktvergleichen");
+    }
+    if (stats.drawPercentage > 40) {
+        trends.push("Häufige Unentschieden in Direktvergleichen");
+    }
+    if (stats.over25Percentage > 70) {
+        trends.push("Torreiche Duelle in der Vergangenheit");
+    }
+    if (stats.bttsPercentage > 70) {
+        trends.push("Beide Teams treffen häufig");
+    }
+    if (stats.avgGoals > 3.5) {
+        trends.push("Sehr torreiche Historie");
+    }
+    
+    return trends.length > 0 ? trends : ["Keine klaren Trends in Direktvergleichen"];
+}
+
+// NEUE FUNKTION: H2H Stärke berechnen
+function calculateH2HStrength(stats) {
+    let strength = 0;
+    
+    // Heimstärke
+    if (stats.homeWinPercentage > 70) strength += 2;
+    else if (stats.homeWinPercentage > 50) strength += 1;
+    
+    // Auswärtsstärke  
+    if (stats.awayWinPercentage > 70) strength -= 2;
+    else if (stats.awayWinPercentage > 50) strength -= 1;
+    
+    // Torreich
+    if (stats.avgGoals > 3.0) strength += 1;
+    if (stats.over25Percentage > 80) strength += 1;
+    
+    return strength;
+}
+
+// NEUE FUNKTION: Live-Statistiken abrufen
+async function getLiveStatistics(fixtureId) {
+    if (!API_FOOTBALL_KEY || !fixtureId) return null;
+
+    try {
+        const res = await fetch(
+            `https://v3.football.api-sports.io/fixtures/statistics?fixture=${fixtureId}`,
+            { headers: { "x-apisports-key": API_FOOTBALL_KEY } }
+        );
+        const data = await res.json();
+        
+        if (!data.response || data.response.length === 0) return null;
+        
+        const stats = data.response[0];
+        return {
+            shots: {
+                total: stats.statistics.find(s => s.type === "Total Shots")?.value || 0,
+                onTarget: stats.statistics.find(s => s.type === "Shots on Goal")?.value || 0
+            },
+            possession: stats.statistics.find(s => s.type === "Ball Possession")?.value || "0%",
+            passes: stats.statistics.find(s => s.type === "Total passes")?.value || 0,
+            accuracy: stats.statistics.find(s => s.type === "Passes accurate")?.value || "0%",
+            fouls: stats.statistics.find(s => s.type === "Fouls")?.value || 0,
+            cards: {
+                yellow: stats.statistics.find(s => s.type === "Yellow Cards")?.value || 0,
+                red: stats.statistics.find(s => s.type === "Red Cards")?.value || 0
+            }
+        };
+    } catch (err) {
+        console.error("Fehler bei Live-Statistiken:", err.message);
+        return null;
+    }
+}
+
+// NEUE FUNKTION: API Predictions abrufen
+async function getAPIPredictions(fixtureId) {
+    if (!API_FOOTBALL_KEY || !fixtureId) return null;
+
+    try {
+        const res = await fetch(
+            `https://v3.football.api-sports.io/predictions?fixture=${fixtureId}`,
+            { headers: { "x-apisports-key": API_FOOTBALL_KEY } }
+        );
+        const data = await res.json();
+        return data.response?.[0] || null;
+    } catch (err) {
+        console.error("Fehler bei Predictions:", err.message);
+        return null;
+    }
+}
+
+// NEUE FUNKTION: Verbesserte KI-Analyse mit H2H Daten
+function getEnhancedAIRecommendation(game, h2hData) {
+    const baseRecommendation = getAIRecommendation(game);
+    
+    // Füge H2H Einflüsse hinzu
+    if (h2hData && h2hData.available) {
+        let h2hBoost = 0;
+        let reasoningAdditions = [];
+        
+        // H2H Stärke-Boost
+        if (h2hData.strength > 0) {
+            h2hBoost += 0.1;
+            reasoningAdditions.push("Starke H2H Historie für Heimteam");
+        } else if (h2hData.strength < 0) {
+            h2hBoost -= 0.1;
+            reasoningAdditions.push("Starke H2H Historie für Auswärtsteam");
+        }
+        
+        // Torreiche Historie Boost für Over/BTTS
+        if (h2hData.over25Percentage > 70) {
+            reasoningAdditions.push("Torreiche H2H Historie");
+        }
+        if (h2hData.bttsPercentage > 70) {
+            reasoningAdditions.push("Häufig beide Teams treffen in H2H");
+        }
+        
+        // Verbessere die Empfehlung basierend auf H2H
+        if (reasoningAdditions.length > 0) {
+            baseRecommendation.reasoning += " | " + reasoningAdditions.join(" | ");
+            baseRecommendation.bestScore += h2hBoost;
+            
+            // Upgrade Confidence bei starken H2H Signalen
+            if (h2hBoost > 0.15 && baseRecommendation.confidence === "MEDIUM") {
+                baseRecommendation.confidence = "HOCH";
+            }
+        }
+        
+        baseRecommendation.h2hStats = {
+            homeWinPercent: h2hData.homeWinPercentage,
+            drawPercent: h2hData.drawPercentage,
+            awayWinPercent: h2hData.awayWinPercentage,
+            avgGoals: h2hData.avgGoals,
+            trends: h2hData.trend
+        };
+    }
+    
+    return baseRecommendation;
+    }
+// Bestehende Funktionen (angepasst)
 async function loadHistoricalData() {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
-    // Historische Team-Stats
     if (fs.existsSync(HISTORICAL_FILE)) {
         HISTORICAL_STATS = JSON.parse(fs.readFileSync(HISTORICAL_FILE, "utf-8"));
-        console.log(`✅ Historische Daten geladen: ${Object.keys(HISTORICAL_STATS).length} Teams`);
     } else {
-        // Initialisiere mit Basis-Daten
         HISTORICAL_STATS = {};
-        console.log("ℹ️  Keine historischen Daten gefunden - starte mit Basis-Werten");
     }
 
-    // Performance-Daten
     if (fs.existsSync(PERFORMANCE_FILE)) {
         PERFORMANCE_DATA = JSON.parse(fs.readFileSync(PERFORMANCE_FILE, "utf-8"));
-        console.log(`✅ Performance-Daten geladen: ${Object.keys(PERFORMANCE_DATA.predictions || {}).length} Tage`);
     } else {
-        PERFORMANCE_DATA = {
-            predictions: {},
-            overall: { total: 0, correct: 0, accuracy: 0 }
-        };
+        PERFORMANCE_DATA = { predictions: {}, overall: { total: 0, correct: 0, accuracy: 0 } };
     }
 }
 
-// NEUE FUNKTION: KI-Risiko-Analyse
-function analyzeRisk(game) {
-    const { prob, value, homeXG, awayXG, form } = game;
-    
-    // Risiko-Faktoren berechnen
-    const factors = {
-        // Hohes Risiko bei nahen Wahrscheinlichkeiten
-        closeProb: Math.abs(prob.home - prob.away) < 0.2 ? 0.8 : 0.2,
-        
-        // Hohes Risiko bei niedrigen xG-Werten
-        lowXG: (homeXG + awayXG) < 2.0 ? 0.7 : 0.1,
-        
-        // Risiko bei schlechter Form
-        poorForm: (form.home < 0.3 || form.away < 0.3) ? 0.6 : 0.1,
-        
-        // Risiko bei negativer Value
-        negativeValue: Object.values(value).some(v => v < -0.3) ? 0.9 : 0.1
-    };
-    
-    // Gesamt-Risiko-Score (0-1, 1 = hohes Risiko)
-    const riskScore = (factors.closeProb + factors.lowXG + factors.poorForm + factors.negativeValue) / 4;
-    
-    return {
-        score: riskScore,
-        level: riskScore > 0.7 ? "SEHR HOCH" : riskScore > 0.5 ? "HOCH" : riskScore > 0.3 ? "MEDIUM" : "NIEDRIG",
-        factors: factors
-    };
-}
-
-// NEUE FUNKTION: KI-Empfehlungen
 function getAIRecommendation(game) {
     const risk = analyzeRisk(game);
     const { prob, value } = game;
     
-    // Finde beste Wetten basierend auf Value + Wahrscheinlichkeit
     const markets = [
         { type: "1", prob: prob.home, value: value.home },
         { type: "X", prob: prob.draw, value: value.draw },
@@ -115,16 +313,13 @@ function getAIRecommendation(game) {
         { type: "BTTS Ja", prob: prob.btts, value: value.btts }
     ];
     
-    // Bewertungssystem: Probability * (1 + Value)
     const ratedMarkets = markets.map(market => ({
         ...market,
         score: market.prob * (1 + Math.max(0, market.value))
     })).sort((a, b) => b.score - a.score);
     
     const bestMarket = ratedMarkets[0];
-    const secondBest = ratedMarkets[1];
     
-    // KI-Entscheidungslogik
     let recommendation, reasoning, confidence;
     
     if (risk.score < 0.3 && bestMarket.score > 0.6) {
@@ -148,8 +343,7 @@ function getAIRecommendation(game) {
         reasoning = `Risiko zu hoch: Keine klare Kante erkennbar (Risiko: ${risk.level})`;
     }
     
-    // Alternative Empfehlung falls verfügbar
-    const alternative = secondBest && secondBest.score > 0.4 ? secondBest.type : null;
+    const alternative = ratedMarkets[1] && ratedMarkets[1].score > 0.4 ? ratedMarkets[1].type : null;
     
     return {
         recommendation,
@@ -163,71 +357,101 @@ function getAIRecommendation(game) {
     };
 }
 
-// NEUE FUNKTION: Verbesserte xG-Berechnung mit historischen Daten
-function enhancedXGCalculation(odds, league, homeForm, awayForm, homeTeam, awayTeam) {
-    const baseExpected = expectedGoals(odds.home, odds.away, league.avgGoals, homeForm, awayForm);
+function analyzeRisk(game) {
+    const { prob, value, homeXG, awayXG, form } = game;
     
-    // HISTORISCHE ANPASSUNGEN
-    let historicalAdjustment = 0;
+    const factors = {
+        closeProb: Math.abs(prob.home - prob.away) < 0.2 ? 0.8 : 0.2,
+        lowXG: (homeXG + awayXG) < 2.0 ? 0.7 : 0.1,
+        poorForm: (form.home < 0.3 || form.away < 0.3) ? 0.6 : 0.1,
+        negativeValue: Object.values(value).some(v => v < -0.3) ? 0.9 : 0.1
+    };
     
-    // Prüfe ob historische Daten für Teams verfügbar
-    if (HISTORICAL_STATS[homeTeam]) {
-        historicalAdjustment += HISTORICAL_STATS[homeTeam].homeAdvantage || 0;
-    }
-    if (HISTORICAL_STATS[awayTeam]) {
-        historicalAdjustment -= HISTORICAL_STATS[awayTeam].awayDisadvantage || 0;
-    }
-    
-    const homeAdvantage = 0.2 + (historicalAdjustment * 0.1);
-    const formImpact = (homeForm - 0.5) * 0.6;
+    const riskScore = (factors.closeProb + factors.lowXG + factors.poorForm + factors.negativeValue) / 4;
     
     return {
-        home: Math.max(0.3, baseExpected.home + homeAdvantage + formImpact),
-        away: Math.max(0.2, baseExpected.away - (homeAdvantage * 0.5) + ((awayForm - 0.5) * 0.6))
+        score: riskScore,
+        level: riskScore > 0.7 ? "SEHR HOCH" : riskScore > 0.5 ? "HOCH" : riskScore > 0.3 ? "MEDIUM" : "NIEDRIG",
+        factors: factors
     };
 }
 
-// NEUE FUNKTION: Speichere Vorhersagen für Tracking
-function savePrediction(date, games) {
-    const predictions = games.map(g => ({
-        home: g.home,
-        away: g.away,
-        league: g.league,
-        predicted: {
-            winner: g.prob.home > g.prob.away && g.prob.home > g.prob.draw ? 'home' : 
-                    g.prob.away > g.prob.home && g.prob.away > g.prob.draw ? 'away' : 'draw',
-            over25: g.prob.over25 > 0.5,
-            btts: g.prob.btts > 0.5
-        },
-        probabilities: g.prob,
-        aiRecommendation: g.aiRecommendation,
-        timestamp: new Date().toISOString()
-    }));
-    
-    PERFORMANCE_DATA.predictions[date] = predictions;
-    
-    // Speichere Performance-Daten
-    fs.writeFileSync(PERFORMANCE_FILE, JSON.stringify(PERFORMANCE_DATA, null, 2));
+// Teams und Form Funktionen (wie vorher)
+async function loadOrFetchTeams(forceReload = false) {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
+    if (fs.existsSync(TEAMS_FILE) && !forceReload) {
+        TEAM_IDS = JSON.parse(fs.readFileSync(TEAMS_FILE, "utf-8"));
+        return;
+    }
+
+    if (!API_FOOTBALL_KEY) return;
+
+    const headers = { "x-apisports-key": API_FOOTBALL_KEY };
+    const allTeams = {};
+
+    for (const league of LEAGUES) {
+        try {
+            const res = await fetch(
+                `https://v3.football.api-sports.io/teams?league=${league.id}&season=2024`,
+                { headers }
+            );
+            const data = await res.json();
+            const teams = data?.response || [];
+            teams.forEach(t => {
+                const name = t.team.name.trim();
+                allTeams[name] = t.team.id;
+            });
+        } catch (err) {
+            console.error(`Fehler beim Laden ${league.name}:`, err.message);
+        }
+    }
+
+    TEAM_IDS = allTeams;
+    fs.writeFileSync(TEAMS_FILE, JSON.stringify(allTeams, null, 2));
 }
 
-// NEUE ROUTE: Performance-Daten abrufen
-app.get("/api/performance", (req, res) => {
-    res.json(PERFORMANCE_DATA);
-});
+async function getTeamForm(teamName) {
+    const teamId = TEAM_IDS[teamName];
+    if (!teamId || !API_FOOTBALL_KEY) return 0.5;
+    if (TEAM_CACHE[teamId]) return TEAM_CACHE[teamId];
 
-// NEUE ROUTE: Historische Daten aktualisieren
-app.post("/api/update-stats", express.json(), (req, res) => {
-    const { team, stats } = req.body;
-    
-    if (!HISTORICAL_STATS[team]) {
-        HISTORICAL_STATS[team] = {};
+    try {
+        const res = await fetch(
+            `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=8&status=ft`,
+            { headers: { "x-apisports-key": API_FOOTBALL_KEY } }
+        );
+        const data = await res.json();
+        const fixtures = data?.response || [];
+        if (!fixtures.length) return 0.5;
+
+        let formScore = 0;
+        let totalWeight = 0;
+
+        fixtures.forEach((f, index) => {
+            const weight = 1 - (index * 0.1);
+            const isHome = f.teams.home.id === teamId;
+            const goalsFor = isHome ? f.goals.home : f.goals.away;
+            const goalsAgainst = isHome ? f.goals.away : f.goals.home;
+            
+            let points = 0;
+            if (goalsFor > goalsAgainst) points = 1.0;
+            else if (goalsFor === goalsAgainst) points = 0.5;
+            
+            const goalDiffBonus = Math.min(0.2, (goalsFor - goalsAgainst) * 0.05);
+            
+            formScore += (points + goalDiffBonus) * weight;
+            totalWeight += weight;
+        });
+
+        const normalizedScore = formScore / (totalWeight || 1);
+        TEAM_CACHE[teamId] = Math.max(0.1, Math.min(0.9, normalizedScore));
+        return TEAM_CACHE[teamId];
+    } catch (err) {
+        console.error("Fehler getTeamForm:", err.message);
+        return 0.5;
     }
-    
-    Object.assign(HISTORICAL_STATS[team], stats);
-    fs.writeFileSync(HISTORICAL_FILE, JSON.stringify(HISTORICAL_STATS, null, 2));
-    
-    res.json({ success: true, message: `Stats für ${team} aktualisiert` });
-});
+}
 
 // Mathefunktionen (wie vorher)
 function factorial(n) { 
@@ -306,84 +530,7 @@ function expectedGoals(homeOdds, awayOdds, leagueAvgGoals, homeForm, awayForm) {
     };
 }
 
-// Teams speichern/laden (wie vorher)
-async function loadOrFetchTeams(forceReload = false) {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-
-    if (fs.existsSync(TEAMS_FILE) && !forceReload) {
-        TEAM_IDS = JSON.parse(fs.readFileSync(TEAMS_FILE, "utf-8"));
-        return;
-    }
-
-    if (!API_FOOTBALL_KEY) return;
-
-    const headers = { "x-apisports-key": API_FOOTBALL_KEY };
-    const allTeams = {};
-
-    for (const league of LEAGUES) {
-        try {
-            const res = await fetch(
-                `https://v3.football.api-sports.io/teams?league=${league.id}&season=2024`,
-                { headers }
-            );
-            const data = await res.json();
-            const teams = data?.response || [];
-            teams.forEach(t => {
-                const name = t.team.name.trim();
-                allTeams[name] = t.team.id;
-            });
-        } catch (err) {
-            console.error(`Fehler beim Laden ${league.name}:`, err.message);
-        }
-    }
-
-    TEAM_IDS = allTeams;
-    fs.writeFileSync(TEAMS_FILE, JSON.stringify(allTeams, null, 2));
-}
-
-async function getTeamForm(teamName) {
-    const teamId = TEAM_IDS[teamName];
-    if (!teamId || !API_FOOTBALL_KEY) return 0.5;
-    if (TEAM_CACHE[teamId]) return TEAM_CACHE[teamId];
-
-    try {
-        const res = await fetch(
-            `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=8&status=ft`,
-            { headers: { "x-apisports-key": API_FOOTBALL_KEY } }
-        );
-        const data = await res.json();
-        const fixtures = data?.response || [];
-        if (!fixtures.length) return 0.5;
-
-        let formScore = 0;
-        let totalWeight = 0;
-
-        fixtures.forEach((f, index) => {
-            const weight = 1 - (index * 0.1);
-            const isHome = f.teams.home.id === teamId;
-            const goalsFor = isHome ? f.goals.home : f.goals.away;
-            const goalsAgainst = isHome ? f.goals.away : f.goals.home;
-            
-            let points = 0;
-            if (goalsFor > goalsAgainst) points = 1.0;
-            else if (goalsFor === goalsAgainst) points = 0.5;
-            
-            const goalDiffBonus = Math.min(0.2, (goalsFor - goalsAgainst) * 0.05);
-            
-            formScore += (points + goalDiffBonus) * weight;
-            totalWeight += weight;
-        });
-
-        const normalizedScore = formScore / (totalWeight || 1);
-        TEAM_CACHE[teamId] = Math.max(0.1, Math.min(0.9, normalizedScore));
-        return TEAM_CACHE[teamId];
-    } catch (err) {
-        console.error("Fehler getTeamForm:", err.message);
-        return 0.5;
-    }
-}
-
-// Haupt-API Route (erweitert)
+// Haupt-API Route (ERWEITERT mit H2H)
 app.get("/api/games", async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
     const date = req.query.date || today;
@@ -426,8 +573,7 @@ app.get("/api/games", async (req, res) => {
                 const homeForm = await getTeamForm(home);
                 const awayForm = await getTeamForm(away);
 
-                // VERBESSERT: Enhanced xG mit historischen Daten
-                const expected = enhancedXGCalculation(odds, league, homeForm, awayForm, home, away);
+                const expected = expectedGoals(odds.home, odds.away, league.avgGoals, homeForm, awayForm);
                 const homeXG = expected.home;
                 const awayXG = expected.away;
 
@@ -443,10 +589,21 @@ app.get("/api/games", async (req, res) => {
                     btts: prob.btts * odds.over25 - 1,
                 };
 
-                // NEU: KI-Empfehlung hinzufügen
-                const aiRecommendation = getAIRecommendation({
-                    home, away, league: league.name, odds, prob, value, homeXG, awayXG, form: { home: homeForm, away: awayForm }
-                });
+                // NEU: Head-to-Head Daten abrufen
+                const homeTeamId = TEAM_IDS[home];
+                const awayTeamId = TEAM_IDS[away];
+                let h2hData = null;
+                
+                if (homeTeamId && awayTeamId) {
+                    const h2hGames = await getHeadToHead(homeTeamId, awayTeamId);
+                    h2hData = analyzeHeadToHead(h2hGames, home, away);
+                }
+
+                // NEU: Verbesserte KI-Empfehlung mit H2H
+                const aiRecommendation = getEnhancedAIRecommendation(
+                    { home, away, league: league.name, odds, prob, value, homeXG, awayXG, form: { home: homeForm, away: awayForm } },
+                    h2hData
+                );
 
                 games.push({
                     home,
@@ -459,7 +616,8 @@ app.get("/api/games", async (req, res) => {
                     awayXG: +awayXG.toFixed(2),
                     totalXG: +(homeXG + awayXG).toFixed(2),
                     form: { home: homeForm, away: awayForm },
-                    aiRecommendation // NEU: KI-Empfehlung
+                    aiRecommendation,
+                    h2hData // NEU: Head-to-Head Daten
                 });
             }
         } catch (err) {
@@ -467,15 +625,48 @@ app.get("/api/games", async (req, res) => {
         }
     }
 
-    // NEU: Speichere Vorhersagen für Tracking
-    savePrediction(date, games);
+    // Performance speichern
+    const predictions = games.map(g => ({
+        home: g.home,
+        away: g.away,
+        league: g.league,
+        predicted: {
+            winner: g.prob.home > g.prob.away && g.prob.home > g.prob.draw ? 'home' : 
+                    g.prob.away > g.prob.home && g.prob.away > g.prob.draw ? 'away' : 'draw',
+            over25: g.prob.over25 > 0.5,
+            btts: g.prob.btts > 0.5
+        },
+        probabilities: g.prob,
+        aiRecommendation: g.aiRecommendation,
+        timestamp: new Date().toISOString()
+    }));
+    
+    PERFORMANCE_DATA.predictions[date] = predictions;
+    fs.writeFileSync(PERFORMANCE_FILE, JSON.stringify(PERFORMANCE_DATA, null, 2));
 
     CACHE[cacheId] = { response: games };
     res.json({ response: games });
+});
+
+// NEUE ROUTE: Live-Statistiken für ein Spiel
+app.get("/api/live-stats/:fixtureId", async (req, res) => {
+    const { fixtureId } = req.params;
+    
+    try {
+        const stats = await getLiveStatistics(fixtureId);
+        res.json({ success: true, stats });
+    } catch (err) {
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// Bestehende Performance Route
+app.get("/api/performance", (req, res) => {
+    res.json(PERFORMANCE_DATA);
 });
 
 // Start
 await loadOrFetchTeams();
 await loadHistoricalData();
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.listen(PORT, () => console.log(`Server läuft auf Port ${PORT} (mit KI & historischen Daten)`));
+app.listen(PORT, () => console.log(`Server läuft auf Port ${PORT} (mit H2H & Live-Daten)`));
