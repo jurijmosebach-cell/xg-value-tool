@@ -344,6 +344,80 @@ function showH2HDetails(game) {
         </div>
     `;
 }
+// NEUE FUNKTION: Ensemble Badge Style
+function getEnsembleBadgeStyle(aiRecommendation) {
+    if (!aiRecommendation.ensembleData) {
+        return { bg: "bg-gray-100", text: "text-gray-600", icon: "🤖", label: "Basic KI" };
+    }
+    
+    const score = aiRecommendation.bestScore;
+    
+    if (score > 0.7) return { bg: "bg-gradient-to-r from-purple-500 to-pink-600", text: "text-white", icon: "🧠", label: "Ensemble KI" };
+    if (score > 0.6) return { bg: "bg-gradient-to-r from-blue-500 to-cyan-600", text: "text-white", icon: "🧠", label: "Ensemble KI" };
+    return { bg: "bg-gradient-to-r from-green-500 to-emerald-600", text: "text-white", icon: "🧠", label: "Ensemble KI" };
+}
+
+// NEUE FUNKTION: Zeige Ensemble Insights
+function showEnsembleInsights(games) {
+    const ensembleGames = games.filter(g => g.aiRecommendation.modelType === "ENSEMBLE");
+    
+    if (ensembleGames.length === 0) return null;
+
+    const insightsSection = document.createElement('div');
+    insightsSection.className = 'top-section bg-gradient-to-r from-purple-50 to-pink-100 border-l-4 border-purple-500 p-6';
+    
+    // Top Ensemble Empfehlungen
+    const topEnsemble = ensembleGames
+        .filter(g => g.aiRecommendation.bestScore > 0.6)
+        .sort((a, b) => b.aiRecommendation.bestScore - a.aiRecommendation.bestScore)
+        .slice(0, 3);
+
+    insightsSection.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">🧠 Ensemble KI Insights</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                <div class="text-2xl font-bold text-purple-600">${ensembleGames.length}</div>
+                <div class="text-sm text-gray-600">Ensemble Analysen</div>
+            </div>
+            <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                <div class="text-2xl font-bold text-green-600">${topEnsemble.length}</div>
+                <div class="text-sm text-gray-600">Starke Empfehlungen</div>
+            </div>
+            <div class="bg-white rounded-lg p-4 text-center shadow-sm">
+                <div class="text-2xl font-bold text-blue-600">${topEnsemble.length > 0 ? (topEnsemble.reduce((acc, g) => acc + g.aiRecommendation.bestScore, 0) / topEnsemble.length * 100).toFixed(1) : '0'}%</div>
+                <div class="text-sm text-gray-600">Ø Ensemble Score</div>
+            </div>
+        </div>
+        
+        ${topEnsemble.length > 0 ? `
+            <div class="space-y-3">
+                <h3 class="font-semibold text-gray-800">Top Ensemble Empfehlungen</h3>
+                ${topEnsemble.map(game => {
+                    const aiRec = game.aiRecommendation;
+                    const ensembleBadge = getEnsembleBadgeStyle(aiRec);
+                    
+                    return `
+                        <div class="bg-white rounded-xl shadow-lg border p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="font-semibold">${game.home} vs ${game.away}</div>
+                                <span class="text-xs ${ensembleBadge.bg} ${ensembleBadge.text} px-2 py-1 rounded-full">
+                                    ${ensembleBadge.icon} ${ensembleBadge.label}
+                                </span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm text-gray-600">Empfohlen: <b>${aiRec.bestMarket}</b></span>
+                                <span class="text-lg font-bold text-purple-600">${(aiRec.bestScore * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">${aiRec.reasoning}</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        ` : ''}
+    `;
+    
+    return insightsSection;
+}
 // Bestehende Hilfsfunktionen (behalten)
 function getRecommendationStyle(recommendation) {
     const styles = {
