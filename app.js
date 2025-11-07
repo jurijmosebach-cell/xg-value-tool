@@ -11,39 +11,340 @@ dateInput.value = today;
 // Klick auf "Spiele laden"
 refreshBtn.addEventListener("click", loadMatches);
 
-// NEUE Funktion: Confidence Level berechnen
-function getConfidenceLevel(probability, value) {
-    const baseConfidence = probability * 100;
-    const valueBonus = Math.max(0, value) * 50;
-    const total = baseConfidence + valueBonus;
-    
-    if (total > 80) return { level: "SEHR HOCH", color: "text-green-600", emoji: "🎯" };
-    if (total > 65) return { level: "HOCH", color: "text-blue-600", emoji: "🔥" };
-    if (total > 50) return { level: "MEDIUM", color: "text-yellow-600", emoji: "⚡" };
-    return { level: "NIEDRIG", color: "text-gray-500", emoji: "💡" };
+// NEUE FUNKTION: KI-Recommendation Styles
+function getRecommendationStyle(recommendation) {
+    const styles = {
+        "STRONG_BET": { 
+            bg: "bg-gradient-to-r from-green-500 to-emerald-600",
+            text: "text-white",
+            border: "border-green-600",
+            icon: "🎯",
+            label: "STARKE EMPFEHLUNG"
+        },
+        "VALUE_BET": { 
+            bg: "bg-gradient-to-r from-blue-500 to-cyan-600", 
+            text: "text-white",
+            border: "border-blue-600",
+            icon: "💰", 
+            label: "VALUE WETTE"
+        },
+        "CAUTIOUS_BET": { 
+            bg: "bg-gradient-to-r from-yellow-400 to-orange-500",
+            text: "text-white",
+            border: "border-yellow-500",
+            icon: "⚠️",
+            label: "VORSICHTIG"
+        },
+        "AVOID": { 
+            bg: "bg-gradient-to-r from-gray-400 to-gray-600",
+            text: "text-white",
+            border: "border-gray-500",
+            icon: "🚫",
+            label: "VERMEIDEN"
+        }
+    };
+    return styles[recommendation] || styles["AVOID"];
 }
 
-// NEUE Funktion: Starke Trends identifizieren
-function getStrongTrends(game) {
-    const trends = [];
-    const { prob, value } = game;
-    
-    // Sieg/Unentschieden Trends
-    if (prob.home > 0.6 && value.home > 0.1) trends.push({ type: "1", confidence: "HOCH" });
-    if (prob.away > 0.6 && value.away > 0.1) trends.push({ type: "2", confidence: "HOCH" });
-    if (prob.draw > 0.35 && value.draw > 0.15) trends.push({ type: "X", confidence: "HOCH" });
-    
-    // Over/Under Trends
-    if (prob.over25 > 0.7 && value.over25 > 0.1) trends.push({ type: "OVER", confidence: "HOCH" });
-    if (prob.over25 < 0.3 && value.over25 < -0.2) trends.push({ type: "UNDER", confidence: "MEDIUM" });
-    
-    // BTTS Trends
-    if (prob.btts > 0.65 && value.btts > 0.1) trends.push({ type: "BTTS_JA", confidence: "HOCH" });
-    if (prob.btts < 0.35 && value.btts < -0.2) trends.push({ type: "BTTS_NEIN", confidence: "MEDIUM" });
-    
-    return trends;
+// NEUE FUNKTION: Risk Badge
+function getRiskBadge(riskLevel) {
+    const riskStyles = {
+        "SEHR HOCH": "bg-red-100 text-red-800 border border-red-300",
+        "HOCH": "bg-orange-100 text-orange-800 border border-orange-300", 
+        "MEDIUM": "bg-yellow-100 text-yellow-800 border border-yellow-300",
+        "NIEDRIG": "bg-green-100 text-green-800 border border-green-300"
+    };
+    return riskStyles[riskLevel] || riskStyles["MEDIUM"];
 }
 
+// NEUE FUNKTION: Lade Performance-Daten
+async function loadPerformanceStats() {
+    try {
+        const res = await fetch('/api/performance');
+        const data = await res.json();
+        return data;
+    } catch (err) {
+        console.error('Fehler beim Laden der Performance-Daten:', err);
+        return null;
+    }
+}
+
+// NEUE FUNKTION: Zeige Performance-Übersicht
+function showPerformanceOverview(performanceData) {
+    const performanceSection = document.createElement('div');
+    performanceSection.className = 'top-section bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 p-6';
+    
+    if (!performanceData || !performanceData.overall) {
+        performanceSection.innerHTML = `
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Performance Tracking</h2>
+            <div class="text-center text-gray-600 py-8">
+                <div class="text-4xl mb-2">📊</div>
+                <p>Noch keine Performance-Daten verfügbar</p>
+                <p class="text-sm mt-2">Analysiere Spiele um Statistiken zu sammeln</p>
+            </div>
+        `;
+        return performanceSection;
+    }
+
+    const overall = performanceData.overall;
+    const accuracy = overall.total > 0 ? Math.round((overall.correct / overall.total) * 100) : 0;
+    
+    // Berechne letzte 7 Tage Performance
+    const last7Days = Object.keys(performanceData.predictions || {})
+        .sort()
+        .slice(-7)
+        .reduce((acc, date) => {
+            const dayPredictions = performanceData.predictions[date];
+            const correct = dayPredictions.filter(p => p.actual && p.actual.correct).length;
+            return {
+                total: acc.total + dayPredictions.length,
+                correct: acc.correct + correct
+            };
+        }, { total: 0, correct: 0 });
+
+    const last7Accuracy = last7Days.total > 0 ? Math.round((last7Days.correct / last7Days.total) * 100) : 0;
+
+    performanceSection.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Performance Tracking</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg text-center shadow-sm">
+                <div class="text-2xl font-bold text-green-600">${accuracy}%</div>
+                <div class="text-sm text-gray-600">Gesamt Genauigkeit</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg text-center shadow-sm">
+                <div class="text-2xl font-bold text-blue-600">${overall.total}</div>
+                <div class="text-sm text-gray-600">Analysierte Spiele</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg text-center shadow-sm">
+                <div class="text-2xl font-bold text-purple-600">${last7Accuracy}%</div>
+                <div class="text-sm text-gray-600">Letzte 7 Tage</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg text-center shadow-sm">
+                <div class="text-2xl font-bold text-orange-600">${overall.correct}</div>
+                <div class="text-sm text-gray-600">Korrekte Vorhersagen</div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg p-4 shadow-sm">
+            <h3 class="font-semibold text-gray-800 mb-3">Performance-Verlauf</h3>
+            <div class="text-sm text-gray-600">
+                ${overall.total > 0 
+                    ? `Die KI-Empfehlungen waren in ${accuracy}% der Fälle korrekt.`
+                    : 'Starte mit der Analyse um Performance-Daten zu sammeln.'
+                }
+            </div>
+        </div>
+    `;
+    
+    return performanceSection;
+}
+
+// NEUE FUNKTION: Zeige KI-Empfehlungen
+function showAIRecommendations(games) {
+    // Filtere nur Spiele mit starken Empfehlungen
+    const strongRecommendations = games.filter(g => 
+        g.aiRecommendation && 
+        ['STRONG_BET', 'VALUE_BET'].includes(g.aiRecommendation.recommendation)
+    ).sort((a, b) => b.aiRecommendation.bestScore - a.aiRecommendation.bestScore);
+
+    if (strongRecommendations.length === 0) return null;
+
+    const recommendationsSection = document.createElement('div');
+    recommendationsSection.className = 'top-section bg-gradient-to-r from-green-50 to-emerald-100 border-l-4 border-green-500 p-6';
+    
+    recommendationsSection.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">🤖 KI Top Empfehlungen</h2>
+        <div class="space-y-4">
+            ${strongRecommendations.map(game => {
+                const rec = game.aiRecommendation;
+                const style = getRecommendationStyle(rec.recommendation);
+                const riskStyle = getRiskBadge(rec.risk.level);
+                
+                return `
+                    <div class="bg-white rounded-xl shadow-lg border ${style.border} overflow-hidden">
+                        <div class="${style.bg} ${style.text} p-4">
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-lg">${style.icon}</span>
+                                    <span class="font-bold">${style.label}</span>
+                                </div>
+                                <span class="text-sm px-3 py-1 bg-white bg-opacity-20 rounded-full">
+                                    Risiko: <span class="${riskStyle} px-2 py-1 rounded-full text-xs">${rec.risk.level}</span>
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="font-bold text-lg">${game.home} vs ${game.away}</div>
+                                    <div class="text-sm text-gray-600">${game.league}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-2xl font-bold text-blue-600">${rec.bestMarket}</div>
+                                    <div class="text-sm text-gray-600">Empfohlene Wette</div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                                <div class="text-sm text-gray-700">${rec.reasoning}</div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div class="text-center">
+                                    <div class="font-semibold text-gray-800">KI Confidence</div>
+                                    <div class="text-lg font-bold ${rec.confidence === 'SEHR HOCH' ? 'text-green-600' : rec.confidence === 'HOCH' ? 'text-blue-600' : 'text-yellow-600'}">
+                                        ${rec.confidence}
+                                    </div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="font-semibold text-gray-800">Score</div>
+                                    <div class="text-lg font-bold text-purple-600">
+                                        ${(rec.bestScore * 100).toFixed(1)}%
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${rec.alternative ? `
+                                <div class="mt-3 text-center text-sm text-gray-600">
+                                    Alternative: <span class="font-semibold">${rec.alternative}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+    
+    return recommendationsSection;
+}
+
+// NEUE FUNKTION: Erweiterte Match-Karten mit KI-Daten
+function createEnhancedMatchCard(game) {
+    const card = document.createElement("div");
+    card.className = "match-card bg-white rounded-xl shadow-lg border p-4";
+    
+    const homeVal = game.prob.home * 100;
+    const drawVal = game.prob.draw * 100;
+    const awayVal = game.prob.away * 100;
+    const overVal = game.prob.over25 * 100;
+    const bttsVal = game.prob.btts * 100;
+
+    const markets = [
+        { type: "1", prob: game.prob.home, value: game.value.home },
+        { type: "X", prob: game.prob.draw, value: game.value.draw },
+        { type: "2", prob: game.prob.away, value: game.value.away },
+        { type: "Over 2.5", prob: game.prob.over25, value: game.value.over25 },
+        { type: "BTTS Ja", prob: game.prob.btts, value: game.value.btts }
+    ];
+    
+    const bestMarket = markets.reduce((a, b) => 
+        (b.prob + b.value) > (a.prob + a.value) ? b : a
+    );
+
+    // KI-Empfehlung
+    const aiRec = game.aiRecommendation;
+    const recStyle = getRecommendationStyle(aiRec.recommendation);
+    const riskStyle = getRiskBadge(aiRec.risk.level);
+
+    card.innerHTML = `
+        <div class="match-header mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-sm font-medium text-gray-500">${game.league}</span>
+                <div class="flex space-x-2">
+                    <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">xG: ${game.totalXG}</span>
+                    <span class="text-xs ${riskStyle} px-2 py-1 rounded">Risiko: ${aiRec.risk.level}</span>
+                </div>
+            </div>
+            <div class="flex justify-between items-center">
+                <div class="text-center">
+                    <div class="font-semibold">${game.home}</div>
+                    <div class="text-sm text-gray-600">${game.homeXG} xG • ${(game.form.home * 100).toFixed(0)}% Form</div>
+                </div>
+                <div class="text-gray-400 mx-2">vs</div>
+                <div class="text-center">
+                    <div class="font-semibold">${game.away}</div>
+                    <div class="text-sm text-gray-600">${game.awayXG} xG • ${(game.form.away * 100).toFixed(0)}% Form</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KI-Empfehlung -->
+        <div class="${recStyle.bg} ${recStyle.text} rounded-lg p-3 mb-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <span>${recStyle.icon}</span>
+                    <span class="font-bold text-sm">${recStyle.label}</span>
+                </div>
+                <span class="text-sm font-semibold">${aiRec.bestMarket}</span>
+            </div>
+            <div class="text-sm mt-1 opacity-90">${aiRec.reasoning}</div>
+        </div>
+
+        <!-- Wahrscheinlichkeiten -->
+        <div class="space-y-3">
+            <div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Heimsieg</span>
+                    <span>${homeVal.toFixed(1)}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-green-500 h-2 rounded-full" style="width: ${homeVal}%"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Unentschieden</span>
+                    <span>${drawVal.toFixed(1)}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-yellow-500 h-2 rounded-full" style="width: ${drawVal}%"></div>
+                </div>
+            </div>
+            
+            <div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Auswärtssieg</span>
+                    <span>${awayVal.toFixed(1)}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-red-500 h-2 rounded-full" style="width: ${awayVal}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Markets -->
+        <div class="grid grid-cols-2 gap-4 mt-4">
+            <div class="text-center">
+                <div class="text-sm text-gray-600">Over 2.5</div>
+                <div class="text-lg font-bold ${overVal > 50 ? 'text-green-600' : 'text-red-600'}">
+                    ${overVal.toFixed(1)}%
+                </div>
+            </div>
+            <div class="text-center">
+                <div class="text-sm text-gray-600">BTTS Ja</div>
+                <div class="text-lg font-bold ${bttsVal > 50 ? 'text-green-600' : 'text-red-600'}">
+                    ${bttsVal.toFixed(1)}%
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+            <div class="text-center font-semibold text-blue-600">
+                🤖 KI Confidence: ${aiRec.confidence}
+            </div>
+            <div class="text-center text-sm text-gray-600 mt-1">
+                Score: ${(aiRec.bestScore * 100).toFixed(1)}%
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+// HAUPTFUNKTION: Spiele laden (erweitert)
 async function loadMatches() {
     const date = dateInput.value;
     const leagues = Array.from(leagueSelect.selectedOptions).map(o => o.value);
@@ -57,10 +358,14 @@ async function loadMatches() {
         return;
     }
 
-    statusDiv.textContent = "Lade Spiele...";
+    statusDiv.textContent = "Lade Spiele und KI-Analysen...";
     matchList.innerHTML = "";
 
     try {
+        // Lade Performance-Daten parallel
+        const performancePromise = loadPerformanceStats();
+        
+        // Lade Spiele
         const res = await fetch(`/api/games?date=${date}&leagues=${leagues.join(",")}`);
         const data = await res.json();
         const games = data.response;
@@ -70,7 +375,20 @@ async function loadMatches() {
             return;
         }
 
-        // Top 10 Wahrscheinlichkeit
+        // Warte auf Performance-Daten
+        const performanceData = await performancePromise;
+
+        // Zeige Performance-Übersicht
+        const performanceSection = showPerformanceOverview(performanceData);
+        matchList.appendChild(performanceSection);
+
+        // Zeige KI Top-Empfehlungen
+        const aiSection = showAIRecommendations(games);
+        if (aiSection) {
+            matchList.appendChild(aiSection);
+        }
+
+        // Top 10 Wahrscheinlichkeit (angepasst)
         const top10 = [...games]
             .map(g => {
                 const best =
@@ -87,180 +405,38 @@ async function loadMatches() {
 
         if (top10.length > 0) {
             const top10Section = document.createElement("div");
-            top10Section.className = "top-section bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500";
-            top10Section.innerHTML = `<h2 class="text-xl font-bold text-gray-800">🏅 Top 10 Wahrscheinlichkeit</h2>
-                <div class="space-y-2 mt-3">${top10.map(g => {
-                    const confidence = getConfidenceLevel(g.best.val, g.best.value);
-                    return `<div class="flex justify-between items-center p-2 bg-white rounded-lg border">
+            top10Section.className = "top-section bg-gradient-to-r from-green-50 to-blue-50 border-l-4 border-green-500 p-6";
+            top10Section.innerHTML = `<h2 class="text-xl font-bold text-gray-800 mb-4">Top 10 Wahrscheinlichkeit</h2>
+                <div class="space-y-2">${top10.map(g => {
+                    const aiRec = g.aiRecommendation;
+                    const recStyle = getRecommendationStyle(aiRec.recommendation);
+                    
+                    return `<div class="flex justify-between items-center p-3 bg-white rounded-lg border">
                         <div>
                             <span class="font-semibold">${g.home} vs ${g.away}</span>
                             <br><span class="text-sm text-gray-600">Tipp <b class="text-blue-600">${g.best.type}</b> - ${(g.best.val * 100).toFixed(1)}%</span>
                         </div>
-                        <span class="${confidence.color} font-bold text-sm">${confidence.emoji} ${confidence.level}</span>
+                        <div class="text-right">
+                            <span class="text-sm ${recStyle.text} ${recStyle.bg} px-2 py-1 rounded">${recStyle.icon} ${aiRec.recommendation.replace('_', ' ')}</span>
+                        </div>
                     </div>`;
                 }).join("")}</div>`;
             matchList.appendChild(top10Section);
         }
 
-        // Top 5 Value
-        const topValue = [...games]
-            .map(g => {
-                const markets = [
-                    { type: "1", val: g.value.home, prob: g.prob.home },
-                    { type: "X", val: g.value.draw, prob: g.prob.draw },
-                    { type: "2", val: g.value.away, prob: g.prob.away },
-                    { type: "Over 2.5", val: g.value.over25, prob: g.prob.over25 },
-                    { type: "BTTS Ja", val: g.value.btts, prob: g.prob.btts }
-                ];
-                const best = markets.reduce((a, b) => b.val > a.val ? b : a);
-                return { ...g, bestValue: best };
-            })
-            .filter(g => g.bestValue.val > 0.1 && g.bestValue.prob > 0.3)
-            .sort((a, b) => b.bestValue.val - a.bestValue.val)
-            .slice(0, 5);
-
-        if (topValue.length > 0) {
-            const topValueSection = document.createElement("div");
-            topValueSection.className = "top-section bg-gradient-to-r from-yellow-50 to-orange-50 border-l-4 border-yellow-500";
-            topValueSection.innerHTML = `<h2 class="text-xl font-bold text-gray-800">💰 Top 5 Value Wetten</h2>
-                <div class="space-y-2 mt-3">${topValue.map(g => {
-                    const confidence = getConfidenceLevel(g.bestValue.prob, g.bestValue.val);
-                    return `<div class="flex justify-between items-center p-2 bg-white rounded-lg border">
-                        <div>
-                            <span class="font-semibold">${g.home} vs ${g.away}</span>
-                            <br><span class="text-sm text-gray-600"><b class="text-green-600">${g.bestValue.type}</b> - Value: ${(g.bestValue.val * 100).toFixed(1)}%</span>
-                        </div>
-                        <span class="${confidence.color} font-bold text-sm">${confidence.emoji}</span>
-                    </div>`;
-                }).join("")}</div>`;
-            matchList.appendChild(topValueSection);
-        }
-
-        // STARKE TRENDS Sektion
-        const strongTrendGames = games
-            .map(g => {
-                const trends = getStrongTrends(g);
-                return { ...g, strongTrends: trends };
-            })
-            .filter(g => g.strongTrends.length > 0);
-
-        if (strongTrendGames.length > 0) {
-            const trendsSection = document.createElement("div");
-            trendsSection.className = "top-section bg-gradient-to-r from-purple-50 to-pink-50 border-l-4 border-purple-500";
-            trendsSection.innerHTML = `<h2 class="text-xl font-bold text-gray-800">📈 Starke Trends</h2>
-                <div class="space-y-3 mt-3">${strongTrendGames.map(g => `
-                    <div class="p-3 bg-white rounded-lg border">
-                        <div class="font-semibold text-lg">${g.home} vs ${g.away}</div>
-                        <div class="flex flex-wrap gap-2 mt-2">
-                            ${g.strongTrends.map(t => 
-                                `<span class="px-3 py-1 rounded-full text-sm font-medium ${
-                                    t.confidence === 'HOCH' 
-                                        ? 'bg-red-100 text-red-800 border border-red-300'
-                                        : 'bg-orange-100 text-orange-800 border border-orange-300'
-                                }">${t.type}</span>`
-                            ).join('')}
-                        </div>
-                    </div>
-                `).join('')}</div>`;
-            matchList.appendChild(trendsSection);
-        }
-
-        // Restliche Spiele
-        const restGames = games.filter(g => 
-            !top10.some(t => t.home === g.home && t.away === g.away) &&
-            !topValue.some(t => t.home === g.home && t.away === g.away) &&
-            !strongTrendGames.some(t => t.home === g.home && t.away === g.away)
+        // Weitere Spiele mit erweiterten Karten
+        const otherGames = games.filter(g => 
+            !top10.some(t => t.home === g.home && t.away === g.away)
         );
 
-        if (restGames.length > 0) {
+        if (otherGames.length > 0) {
             const restSection = document.createElement("div");
-            restSection.className = "top-section";
-            restSection.innerHTML = `<h2 class="text-xl font-bold text-gray-800 mb-4">🗂 Weitere Spiele</h2>
+            restSection.className = "top-section p-6";
+            restSection.innerHTML = `<h2 class="text-xl font-bold text-gray-800 mb-4">Weitere Spiele</h2>
                 <div class="grid gap-4 md:grid-cols-2">`;
             
-            restGames.forEach(g => {
-                const card = document.createElement("div");
-                card.className = "match-card bg-white rounded-xl shadow-lg border p-4";
-                
-                const homeVal = g.prob.home * 100;
-                const drawVal = g.prob.draw * 100;
-                const awayVal = g.prob.away * 100;
-                const overVal = g.prob.over25 * 100;
-                const bttsVal = g.prob.btts * 100;
-
-                const markets = [
-                    { type: "1", prob: g.prob.home, value: g.value.home },
-                    { type: "X", prob: g.prob.draw, value: g.value.draw },
-                    { type: "2", prob: g.prob.away, value: g.value.away },
-                    { type: "Over 2.5", prob: g.prob.over25, value: g.value.over25 },
-                    { type: "BTTS Ja", prob: g.prob.btts, value: g.value.btts }
-                ];
-                
-                const bestMarket = markets.reduce((a, b) => 
-                    (b.prob + b.value) > (a.prob + a.value) ? b : a
-                );
-                const confidence = getConfidenceLevel(bestMarket.prob, bestMarket.value);
-
-                card.innerHTML = `
-                    <div class="match-header mb-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-medium text-gray-500">${g.league}</span>
-                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">xG: ${g.totalXG}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <div class="text-center">
-                                <div class="font-semibold">${g.home}</div>
-                                <div class="text-sm text-gray-600">${g.homeXG} xG</div>
-                            </div>
-                            <div class="text-gray-400 mx-2">vs</div>
-                            <div class="text-center">
-                                <div class="font-semibold">${g.away}</div>
-                                <div class="text-sm text-gray-600">${g.awayXG} xG</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span>Heimsieg</span>
-                                <span>${homeVal.toFixed(1)}%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-green-500 h-2 rounded-full" style="width: ${homeVal}%"></div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span>Unentschieden</span>
-                                <span>${drawVal.toFixed(1)}%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-yellow-500 h-2 rounded-full" style="width: ${drawVal}%"></div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <div class="flex justify-between text-sm mb-1">
-                                <span>Auswärtssieg</span>
-                                <span>${awayVal.toFixed(1)}%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-red-500 h-2 rounded-full" style="width: ${awayVal}%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 p-3 bg-gray-50 rounded-lg">
-                        <div class="text-center font-semibold ${confidence.color}">
-                            ${confidence.emoji} Empfehlung: ${bestMarket.type}
-                        </div>
-                        <div class="text-center text-sm text-gray-600 mt-1">
-                            Confidence: ${confidence.level}
-                        </div>
-                    </div>
-                `;
+            otherGames.forEach(g => {
+                const card = createEnhancedMatchCard(g);
                 restSection.appendChild(card);
             });
             
@@ -268,7 +444,7 @@ async function loadMatches() {
             matchList.appendChild(restSection);
         }
 
-        statusDiv.textContent = `${games.length} Spiele geladen!`;
+        statusDiv.textContent = `${games.length} Spiele geladen - KI-Analyse abgeschlossen!`;
 
     } catch(err) {
         statusDiv.textContent = "Fehler: " + err.message;
