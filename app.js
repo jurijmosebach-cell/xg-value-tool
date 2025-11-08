@@ -357,6 +357,221 @@ function getEnsembleBadgeStyle(aiRecommendation) {
     return { bg: "bg-gradient-to-r from-green-500 to-emerald-600", text: "text-white", icon: "🧠", label: "Ensemble KI" };
 }
 
+// NEUE FUNKTION: Top 5 Wahrscheinlichkeiten
+function showTop5Probabilities(games) {
+    const topProbabilities = [...games]
+        .map(game => {
+            const bestProb = Math.max(
+                game.prob.home, 
+                game.prob.draw, 
+                game.prob.away
+            );
+            const bestType = 
+                bestProb === game.prob.home ? "1" :
+                bestProb === game.prob.draw ? "X" : "2";
+            
+            return {
+                ...game,
+                bestProbability: bestProb,
+                bestType: bestType
+            };
+        })
+        .filter(game => game.bestProbability > 0.4) // Nur plausible Wahrscheinlichkeiten
+        .sort((a, b) => b.bestProbability - a.bestProbability)
+        .slice(0, 5);
+
+    if (topProbabilities.length === 0) return null;
+
+    const section = document.createElement('div');
+    section.className = 'top-section bg-gradient-to-r from-blue-50 to-cyan-50 border-l-4 border-blue-500 p-6';
+    
+    section.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">🎯 Top 5 Wahrscheinlichkeiten</h2>
+        <div class="space-y-3">
+            ${topProbabilities.map(game => `
+                <div class="bg-white rounded-xl shadow-lg border border-blue-200 p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <div class="font-semibold text-gray-800">${game.home} vs ${game.away}</div>
+                            <div class="text-sm text-gray-600">${game.league}</div>
+                        </div>
+                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
+                            ${(game.bestProbability * 100).toFixed(1)}%
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-700">Beste Wette: <b>${game.bestType}</b></span>
+                        <div class="flex space-x-2 text-xs">
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded">1: ${(game.prob.home * 100).toFixed(1)}%</span>
+                            <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">X: ${(game.prob.draw * 100).toFixed(1)}%</span>
+                            <span class="bg-red-100 text-red-800 px-2 py-1 rounded">2: ${(game.prob.away * 100).toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    ${game.aiRecommendation ? `
+                        <div class="mt-2 text-xs text-gray-600">
+                            KI-Empfehlung: <span class="font-semibold ${getRecommendationColor(game.aiRecommendation.recommendation)}">${game.aiRecommendation.recommendation.replace('_', ' ')}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    return section;
+}
+
+// NEUE FUNKTION: Top 5 Over/Under 2.5
+function showTop5OverUnder(games) {
+    const topOverUnder = [...games]
+        .map(game => ({
+            ...game,
+            overProbability: game.prob.over25,
+            underProbability: 1 - game.prob.over25
+        }))
+        .filter(game => game.overProbability > 0.3 || game.underProbability > 0.7) // Nur klare Fälle
+        .sort((a, b) => {
+            // Sortiere nach stärkster Tendenz (entfernt von 50%)
+            const aTendency = Math.abs(a.overProbability - 0.5);
+            const bTendency = Math.abs(b.overProbability - 0.5);
+            return bTendency - aTendency;
+        })
+        .slice(0, 5);
+
+    if (topOverUnder.length === 0) return null;
+
+    const section = document.createElement('div');
+    section.className = 'top-section bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 p-6';
+    
+    section.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">⚽ Top 5 Over/Under 2.5</h2>
+        <div class="space-y-3">
+            ${topOverUnder.map(game => {
+                const isOver = game.overProbability > 0.5;
+                const probability = isOver ? game.overProbability : game.underProbability;
+                const type = isOver ? "Over 2.5" : "Under 2.5";
+                const barColor = isOver ? "bg-green-500" : "bg-red-500";
+                const textColor = isOver ? "text-green-700" : "text-red-700";
+                const bgColor = isOver ? "bg-green-100" : "bg-red-100";
+                
+                return `
+                    <div class="bg-white rounded-xl shadow-lg border border-green-200 p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <div class="font-semibold text-gray-800">${game.home} vs ${game.away}</div>
+                                <div class="text-sm text-gray-600">${game.league}</div>
+                            </div>
+                            <span class="${bgColor} ${textColor} px-3 py-1 rounded-full text-sm font-semibold">
+                                ${type}: ${(probability * 100).toFixed(1)}%
+                            </span>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                <span>Over 2.5: ${(game.overProbability * 100).toFixed(1)}%</span>
+                                <span>Under 2.5: ${(game.underProbability * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="h-3 rounded-full flex">
+                                    <div class="${barColor} rounded-l-full" style="width: ${game.overProbability * 100}%"></div>
+                                    <div class="bg-red-500 rounded-r-full" style="width: ${game.underProbability * 100}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-gray-600">
+                            Erwartete Tore: <b>${game.totalXG}</b> | 
+                            xG: ${game.homeXG}-${game.awayXG}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+    
+    return section;
+}
+
+// NEUE FUNKTION: Top 5 BTTS (Both Teams To Score)
+function showTop5BTTS(games) {
+    const topBTTS = [...games]
+        .map(game => ({
+            ...game,
+            bttsYes: game.prob.btts,
+            bttsNo: 1 - game.prob.btts
+        }))
+        .filter(game => game.bttsYes > 0.6 || game.bttsNo > 0.7) // Nur klare Tendenzen
+        .sort((a, b) => {
+            // Sortiere nach stärkster BTTS-Tendenz
+            const aTendency = Math.max(a.bttsYes, a.bttsNo);
+            const bTendency = Math.max(b.bttsYes, b.bttsNo);
+            return bTendency - aTendency;
+        })
+        .slice(0, 5);
+
+    if (topBTTS.length === 0) return null;
+
+    const section = document.createElement('div');
+    section.className = 'top-section bg-gradient-to-r from-orange-50 to-amber-50 border-l-4 border-orange-500 p-6';
+    
+    section.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">🎪 Top 5 BTTS (Both Teams To Score)</h2>
+        <div class="space-y-3">
+            ${topBTTS.map(game => {
+                const isBTTSYes = game.bttsYes > 0.5;
+                const probability = isBTTSYes ? game.bttsYes : game.bttsNo;
+                const type = isBTTSYes ? "BTTS Ja" : "BTTS Nein";
+                const barColor = isBTTSYes ? "bg-orange-500" : "bg-gray-500";
+                const textColor = isBTTSYes ? "text-orange-700" : "text-gray-700";
+                const bgColor = isBTTSYes ? "bg-orange-100" : "bg-gray-100";
+                
+                return `
+                    <div class="bg-white rounded-xl shadow-lg border border-orange-200 p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <div class="font-semibold text-gray-800">${game.home} vs ${game.away}</div>
+                                <div class="text-sm text-gray-600">${game.league}</div>
+                            </div>
+                            <span class="${bgColor} ${textColor} px-3 py-1 rounded-full text-sm font-semibold">
+                                ${type}: ${(probability * 100).toFixed(1)}%
+                            </span>
+                        </div>
+                        
+                        <div class="mb-2">
+                            <div class="flex justify-between text-sm text-gray-600 mb-1">
+                                <span>BTTS Ja: ${(game.bttsYes * 100).toFixed(1)}%</span>
+                                <span>BTTS Nein: ${(game.bttsNo * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="h-3 rounded-full flex">
+                                    <div class="${barColor} rounded-l-full" style="width: ${game.bttsYes * 100}%"></div>
+                                    <div class="bg-gray-500 rounded-r-full" style="width: ${game.bttsNo * 100}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-gray-600">
+                            Heim xG: <b>${game.homeXG}</b> | Auswärts xG: <b>${game.awayXG}</b>
+                            ${game.h2hData && game.h2hData.available ? `| H2H BTTS: ${game.h2hData.bttsPercentage.toFixed(0)}%` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+    
+    return section;
+}
+
+// NEUE FUNKTION: Hilfsfunktion für Recommendation Colors
+function getRecommendationColor(recommendation) {
+    const colors = {
+        "STRONG_BET": "text-green-600",
+        "VALUE_BET": "text-blue-600", 
+        "CAUTIOUS_BET": "text-yellow-600",
+        "AVOID": "text-red-600"
+    };
+    return colors[recommendation] || "text-gray-600";
+}
 // NEUE FUNKTION: Zeige Ensemble Insights
 function showEnsembleInsights(games) {
     const ensembleGames = games.filter(g => g.aiRecommendation.modelType === "ENSEMBLE");
@@ -656,6 +871,22 @@ async function loadMatches() {
         const aiSection = showAIRecommendations(games);
         if (aiSection) {
             matchList.appendChild(aiSection);
+        }
+
+        // NEU: Zeige Top 5 Sektionen
+        const top5Probabilities = showTop5Probabilities(games);
+        if (top5Probabilities) {
+        matchList.appendChild(top5Probabilities);
+        }
+
+        const top5OverUnder = showTop5OverUnder(games);
+        if (top5OverUnder) {
+        matchList.appendChild(top5OverUnder);
+        }
+
+        const top5BTTS = showTop5BTTS(games);
+        if (top5BTTS) {
+        matchList.appendChild(top5BTTS);
         }
 
         // Weitere Spiele mit erweiterten Karten
