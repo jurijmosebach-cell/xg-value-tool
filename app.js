@@ -814,7 +814,103 @@ function showAIRecommendations(games) {
     
     return recommendationsSection;
 }
+// NEU: Performance-Daten laden und anzeigen
+async function loadPerformanceStats() {
+    try {
+        const res = await fetch('/api/performance/stats');
+        const data = await res.json();
+        return data;
+    } catch (err) {
+        console.error('Fehler beim Laden der Performance-Daten:', err);
+        return null;
+    }
+}
 
+// NEU: Erweiterte Performance-Anzeige
+function showEnhancedPerformanceOverview(performanceData) {
+    const performanceSection = document.createElement('div');
+    performanceSection.className = 'top-section bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 p-6';
+    
+    if (!performanceData || performanceData.status === "NO_DATA") {
+        performanceSection.innerHTML = `
+            <h2 class="text-xl font-bold text-gray-800 mb-4">📈 Performance Tracking</h2>
+            <div class="text-center text-gray-600 py-8">
+                <div class="text-4xl mb-2">📊</div>
+                <p>Noch keine Performance-Daten verfügbar</p>
+                <p class="text-sm mt-2">Analysiere Spiele um Statistiken zu sammeln</p>
+                <p class="text-xs mt-1">Ergebnisse werden automatisch nach Spielende aktualisiert</p>
+            </div>
+        `;
+        return performanceSection;
+    }
+
+    const overall = performanceData.overall;
+    const accuracy = overall.accuracy;
+    
+    // Best/Worst Markets
+    const bestMarket = performanceData.bestMarkets?.[0];
+    const confidenceAccuracy = performanceData.confidenceAccuracy || [];
+
+    performanceSection.innerHTML = `
+        <h2 class="text-xl font-bold text-gray-800 mb-4">📈 Performance Tracking</h2>
+        
+        <!-- Haupt-KPIs -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg text-center shadow-sm">
+                <div class="text-2xl font-bold ${accuracy > 60 ? 'text-green-600' : accuracy > 50 ? 'text-yellow-600' : 'text-red-600'}">${accuracy}%</div>
+                <div class="text-sm text-gray-600">Gesamt Genauigkeit</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg text-center shadow-sm">
+                <div class="text-2xl font-bold text-blue-600">${overall.total}</div>
+                <div class="text-sm text-gray-600">Analysierte Spiele</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg text-center shadow-sm">
+                <div class="text-2xl font-bold text-purple-600">${overall.correct}</div>
+                <div class="text-sm text-gray-600">Korrekte Vorhersagen</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg text-center shadow-sm">
+                <div class="text-2xl font-bold text-orange-600">${performanceData.analyzedDays}</div>
+                <div class="text-sm text-gray-600">Analysierte Tage</div>
+            </div>
+        </div>
+        
+        <!-- Zusätzliche Metriken -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <h3 class="font-semibold text-gray-800 mb-2">Beste Märkte</h3>
+                ${bestMarket ? `
+                    <div class="text-sm">
+                        <div class="flex justify-between">
+                            <span>${bestMarket.market}</span>
+                            <span class="font-bold text-green-600">${bestMarket.accuracy}%</span>
+                        </div>
+                        <div class="text-xs text-gray-500">${bestMarket.total} Spiele</div>
+                    </div>
+                ` : '<p class="text-sm text-gray-500">Noch nicht genug Daten</p>'}
+            </div>
+            
+            <div class="bg-white p-4 rounded-lg shadow-sm">
+                <h3 class="font-semibold text-gray-800 mb-2">Confidence Genauigkeit</h3>
+                ${confidenceAccuracy.map(conf => `
+                    <div class="text-sm mb-1">
+                        <div class="flex justify-between">
+                            <span>${conf.confidence}</span>
+                            <span class="font-bold ${conf.actual > conf.expected ? 'text-green-600' : 'text-red-600'}">${conf.actual}%</span>
+                        </div>
+                        <div class="text-xs text-gray-500">Erwartet: ${conf.expected}% (${conf.difference > 0 ? '+' : ''}${conf.difference}%)</div>
+                    </div>
+                `).join('') || '<p class="text-sm text-gray-500">Noch nicht genug Daten</p>'}
+            </div>
+        </div>
+        
+        <!-- Letzte Aktualisierung -->
+        <div class="mt-4 text-center text-xs text-gray-500">
+            Letzte Aktualisierung: ${new Date(performanceData.lastUpdated).toLocaleString('de-DE')}
+        </div>
+    `;
+    
+    return performanceSection;
+}
 // HAUPTFUNKTION: Spiele laden (erweitert)
 async function loadMatches() {
     const date = dateInput.value;
