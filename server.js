@@ -1,4 +1,4 @@
-// server.js - KOMPLETTE SportData.org Integration
+// server.js - KOMPLETTE OPTIMIERTE VERSION - TEIL 1/4
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -140,6 +140,7 @@ function findBestTeamMatch(teamName) {
     
     return teamName; // Fallback zu originalem Namen
 }
+
 // NEU: Echte Team-Form von SportData.org
 async function getRealTeamForm(teamName, leagueId) {
     const mappedTeam = findBestTeamMatch(teamName);
@@ -319,7 +320,7 @@ async function getRealH2H(homeTeam, awayTeam, leagueId) {
         }
 
         // Trend-Analyse
-        stats.trend = analyzeH2HTrend(stats);
+        stats.trends = analyzeH2HTrend(stats);
         stats.strength = calculateH2HStrength(stats);
 
         H2H_CACHE[cacheKey] = stats;
@@ -383,54 +384,245 @@ function calculateH2HStrength(stats) {
     
     return strength;
 }
-// Ensemble Predictor (angepasst für echte Daten)
-class EnsemblePredictor {
+// server.js - KOMPLETTE OPTIMIERTE VERSION - TEIL 2/4
+
+// OPTIMIERT: Advanced Ensemble Predictor
+class AdvancedEnsemblePredictor {
     constructor() {
         this.models = {
             xg: this.xgPrediction.bind(this),
-            form: this.formPrediction.bind(this),
-            h2h: this.h2hPrediction.bind(this),
-            odds: this.oddsPrediction.bind(this),
-            momentum: this.momentumPrediction.bind(this)
+            form: this.advancedFormPrediction.bind(this),
+            h2h: this.enhancedH2HPrediction.bind(this),
+            odds: this.smartOddsPrediction.bind(this),
+            momentum: this.momentumPrediction.bind(this),
+            context: this.contextPrediction.bind(this)
         };
     }
     
     predict(game, leagueName) {
-        const weights = this.getLeagueWeights(leagueName);
+        try {
+            const weights = this.getDynamicWeights(game, leagueName);
+            const predictions = {};
+            let totalWeight = 0;
+            
+            // Sammle Vorhersagen aller Modelle
+            for (const [modelName, modelFn] of Object.entries(this.models)) {
+                const prediction = modelFn(game);
+                if (prediction && prediction.score > 0) {
+                    predictions[modelName] = prediction;
+                    totalWeight += weights[modelName];
+                }
+            }
+            
+            if (Object.keys(predictions).length === 0) {
+                return this.getFallbackPrediction(game);
+            }
+            
+            // Ensemble Scoring
+            const marketScores = this.calculateMarketScores(predictions, weights, totalWeight);
+            const bestMarket = this.findBestMarket(marketScores);
+            const ensembleScore = marketScores[bestMarket];
+            
+            // Confidence Berechnung
+            const confidence = this.calculateConfidence(predictions, weights, game);
+            
+            return {
+                ensembleScore: Math.min(0.95, Math.max(0.05, ensembleScore)),
+                bestMarket,
+                predictions,
+                weights,
+                confidence,
+                marketScores,
+                modelVersion: "ADVANCED_ENSEMBLE_V2"
+            };
+            
+        } catch (error) {
+            console.error("Ensemble Prediction Error:", error);
+            return this.getFallbackPrediction(game);
+        }
+    }
+    
+    getDynamicWeights(game, leagueName) {
+        const baseWeights = {
+            "Bundesliga": { xg: 0.25, form: 0.25, h2h: 0.20, odds: 0.15, momentum: 0.10, context: 0.05 },
+            "Premier League": { xg: 0.23, form: 0.27, h2h: 0.18, odds: 0.17, momentum: 0.10, context: 0.05 },
+            "La Liga": { xg: 0.22, form: 0.24, h2h: 0.20, odds: 0.19, momentum: 0.10, context: 0.05 },
+            "Serie A": { xg: 0.20, form: 0.23, h2h: 0.22, odds: 0.20, momentum: 0.10, context: 0.05 },
+            "Champions League": { xg: 0.24, form: 0.20, h2h: 0.25, odds: 0.16, momentum: 0.10, context: 0.05 },
+            "default": { xg: 0.23, form: 0.25, h2h: 0.18, odds: 0.18, momentum: 0.10, context: 0.06 }
+        };
         
-        const predictions = {};
-        for (const [modelName, modelFn] of Object.entries(this.models)) {
-            predictions[modelName] = modelFn(game);
+        let weights = baseWeights[leagueName] || baseWeights.default;
+        
+        // Dynamische Anpassung basierend auf Datenverfügbarkeit
+        if (!game.h2hData?.available) {
+            weights = { ...weights, h2h: 0.05, form: weights.form + 0.10, xg: weights.xg + 0.05 };
         }
         
-        let ensembleScore = 0;
-        for (const [modelName, prediction] of Object.entries(predictions)) {
-            ensembleScore += prediction.score * weights[modelName];
+        if (game.form.home === 0.5 && game.form.away === 0.5) {
+            weights = { ...weights, form: 0.10, xg: weights.xg + 0.10, odds: weights.odds + 0.05 };
         }
         
-        const bestMarket = this.findBestMarket(predictions, weights);
+        return weights;
+    }
+    
+    enhancedH2HPrediction(game) {
+        if (!game.h2hData || !game.h2hData.available) {
+            return { score: 0.5, bestMarket: "1", confidence: 0.1, data: "NO_H2H" };
+        }
+        
+        const h2h = game.h2hData;
+        const minGames = 3;
+        
+        if (h2h.totalGames < minGames) {
+            return { 
+                score: 0.5 + (h2h.strength * 0.1), 
+                bestMarket: "1", 
+                confidence: 0.3,
+                data: "INSUFFICIENT_H2H" 
+            };
+        }
+        
+        // Erweiterte H2H Analyse
+        const homeDominance = h2h.homeWinPercentage > 60 ? (h2h.homeWinPercentage - 50) / 50 : 0;
+        const awayDominance = h2h.awayWinPercentage > 60 ? (h2h.awayWinPercentage - 50) / 50 : 0;
+        const drawTendency = h2h.drawPercentage > 40 ? (h2h.drawPercentage - 30) / 40 : 0;
+        
+        let bestMarket, score;
+        
+        if (homeDominance > 0.2 && homeDominance > awayDominance) {
+            bestMarket = "1";
+            score = 0.5 + (homeDominance * 0.4);
+        } else if (awayDominance > 0.2 && awayDominance > homeDominance) {
+            bestMarket = "2";
+            score = 0.5 + (awayDominance * 0.4);
+        } else if (drawTendency > 0.2) {
+            bestMarket = "X";
+            score = 0.4 + (drawTendency * 0.3);
+        } else {
+            // Kein klarer Trend - basiere auf Heimvorteil
+            bestMarket = "1";
+            score = 0.5 + (homeDominance * 0.2);
+        }
+        
+        // Over/Under Märkte
+        if (h2h.over25Percentage > 70) {
+            const overScore = 0.5 + ((h2h.over25Percentage - 50) / 50);
+            if (overScore > score) {
+                bestMarket = "Over 2.5";
+                score = overScore;
+            }
+        }
+        
+        if (h2h.bttsPercentage > 70) {
+            const bttsScore = 0.5 + ((h2h.bttsPercentage - 50) / 50);
+            if (bttsScore > score) {
+                bestMarket = "BTTS Ja";
+                score = bttsScore;
+            }
+        }
+        
+        const confidence = Math.min(0.9, 0.3 + (h2h.totalGames * 0.1));
         
         return {
-            ensembleScore,
-            predictions,
-            weights,
+            score: Math.min(0.9, score),
             bestMarket,
-            modelConfidence: this.calculateModelConfidence(predictions)
+            confidence,
+            data: {
+                homeDominance,
+                awayDominance,
+                drawTendency,
+                totalGames: h2h.totalGames
+            }
         };
     }
     
-    getLeagueWeights(leagueName) {
-        const weights = {
-            "Bundesliga": { xg: 0.35, form: 0.30, h2h: 0.15, odds: 0.20 },
-            "Premier League": { xg: 0.32, form: 0.28, h2h: 0.18, odds: 0.22 },
-            "La Liga": { xg: 0.30, form: 0.25, h2h: 0.20, odds: 0.25 },
-            "Serie A": { xg: 0.28, form: 0.25, h2h: 0.22, odds: 0.25 },
-            "Ligue 1": { xg: 0.33, form: 0.27, h2h: 0.17, odds: 0.23 },
-            "Champions League": { xg: 0.30, form: 0.20, h2h: 0.25, odds: 0.25 },
-            "default": { xg: 0.32, form: 0.26, h2h: 0.18, odds: 0.24 }
-        };
+    advancedFormPrediction(game) {
+        const { form, homeXG, awayXG } = game;
         
-        return weights[leagueName] || weights.default;
+        // Form-Berechnung mit xG Integration
+        const formDiff = form.home - form.away;
+        const xgDiff = homeXG - awayXG;
+        const homeAdvantage = 0.12; // Basis Heimvorteil
+        
+        // Kombinierter Score aus Form und xG
+        const combinedScore = (formDiff * 0.7) + (xgDiff * 0.3);
+        
+        let bestMarket, score;
+        
+        if (combinedScore > 0.3) {
+            bestMarket = "1";
+            score = 0.6 + (combinedScore * 0.5) + homeAdvantage;
+        } else if (combinedScore < -0.3) {
+            bestMarket = "2";
+            score = 0.6 + (Math.abs(combinedScore) * 0.5) - (homeAdvantage * 0.5);
+        } else {
+            bestMarket = "X";
+            score = 0.4 + (0.3 - Math.abs(combinedScore)) * 0.7;
+        }
+        
+        // Form-Stabilitäts-Bonus
+        const formStability = 1 - Math.abs(form.home - 0.5) - Math.abs(form.away - 0.5);
+        score += formStability * 0.1;
+        
+        return {
+            score: Math.min(0.85, Math.max(0.15, score)),
+            bestMarket,
+            confidence: 0.6 + (Math.min(form.home, form.away) * 0.3)
+        };
+    }
+    
+    smartOddsPrediction(game) {
+        const { odds, prob } = game;
+        
+        // Kelly Criterion basierte Value Berechnung
+        const markets = [
+            { 
+                type: "1", 
+                odds: odds.home, 
+                prob: prob.home,
+                kelly: (prob.home * odds.home - 1) / (odds.home - 1)
+            },
+            { 
+                type: "X", 
+                odds: odds.draw, 
+                prob: prob.draw,
+                kelly: (prob.draw * odds.draw - 1) / (odds.draw - 1)
+            },
+            { 
+                type: "2", 
+                odds: odds.away, 
+                prob: prob.away,
+                kelly: (prob.away * odds.away - 1) / (odds.away - 1)
+            },
+            { 
+                type: "Over 2.5", 
+                odds: odds.over25, 
+                prob: prob.over25,
+                kelly: (prob.over25 * odds.over25 - 1) / (odds.over25 - 1)
+            }
+        ].filter(m => m.odds > 0 && m.prob > 0);
+        
+        if (markets.length === 0) {
+            return { score: 0.5, bestMarket: "1", confidence: 0.1 };
+        }
+        
+        // Finde beste Value Wette
+        const bestValue = markets.reduce((a, b) => 
+            (b.kelly > a.kelly) ? b : a
+        );
+        
+        // Score basierend auf Kelly und Probability
+        const valueScore = Math.max(0, bestValue.kelly * 2); // Kelly normalisiert
+        const probScore = bestValue.prob;
+        const combinedScore = 0.4 + (valueScore * 0.4) + (probScore * 0.2);
+        
+        return {
+            score: Math.min(0.9, combinedScore),
+            bestMarket: bestValue.type,
+            confidence: 0.5 + (Math.min(1, bestValue.kelly * 5) * 0.3),
+            kellyValue: bestValue.kelly
+        };
     }
     
     xgPrediction(game) {
@@ -454,89 +646,6 @@ class EnsemblePredictor {
         };
     }
     
-    formPrediction(game) {
-        const formDiff = game.form.home - game.form.away;
-        const homeAdvantage = 0.15;
-        
-        let bestMarket, score;
-        
-        if (formDiff > 0.3) {
-            bestMarket = "1";
-            score = 0.6 + (formDiff * 0.5);
-        } else if (formDiff < -0.3) {
-            bestMarket = "2";
-            score = 0.6 + (Math.abs(formDiff) * 0.5);
-        } else {
-            bestMarket = "X";
-            score = 0.4 + (0.3 - Math.abs(formDiff)) * 0.5;
-        }
-        
-        if (bestMarket === "1") score += homeAdvantage;
-        if (bestMarket === "2") score -= homeAdvantage * 0.5;
-        
-        return {
-            score: Math.min(score, 0.95),
-            bestMarket,
-            confidence: 0.7
-        };
-    }
-    
-    h2hPrediction(game) {
-        if (!game.h2hData || !game.h2hData.available) {
-            return { score: 0.5, bestMarket: "1", confidence: 0.1 };
-        }
-        
-        const h2h = game.h2hData;
-        let bestMarket, score;
-        
-        if (h2h.homeWinPercentage > 60) {
-            bestMarket = "1";
-            score = h2h.homeWinPercentage / 100;
-        } else if (h2h.awayWinPercentage > 60) {
-            bestMarket = "2";
-            score = h2h.awayWinPercentage / 100;
-        } else if (h2h.drawPercentage > 40) {
-            bestMarket = "X";
-            score = h2h.drawPercentage / 100;
-        } else {
-            bestMarket = "1";
-            score = 0.5;
-        }
-        
-        if (h2h.over25Percentage > 70) score += 0.1;
-        if (h2h.bttsPercentage > 70) score += 0.05;
-        
-        return {
-            score: Math.min(score, 0.9),
-            bestMarket,
-            confidence: h2h.totalGames >= 5 ? 0.8 : 0.5
-        };
-    }
-    
-    oddsPrediction(game) {
-        const { odds, prob } = game;
-        const markets = [
-            { type: "1", odds: odds.home, prob: prob.home },
-            { type: "X", odds: odds.draw, prob: prob.draw },
-            { type: "2", odds: odds.away, prob: prob.away },
-            { type: "Over 2.5", odds: odds.over25, prob: prob.over25 }
-        ];
-        
-        const bestValue = markets.reduce((a, b) => {
-            const valueA = a.prob * a.odds - 1;
-            const valueB = b.prob * b.odds - 1;
-            return valueB > valueA ? b : a;
-        });
-        
-        const valueScore = Math.max(0, bestValue.prob * bestValue.odds - 1);
-        
-        return {
-            score: 0.5 + (valueScore * 2),
-            bestMarket: bestValue.type,
-            confidence: 0.6
-        };
-    }
-    
     momentumPrediction(game) {
         // Vereinfachte Momentum-Berechnung
         const momentumDiff = (game.form.home - 0.5) - (game.form.away - 0.5);
@@ -555,120 +664,392 @@ class EnsemblePredictor {
         }
         
         return {
-            score: Math.min(score, 0.9),
+            score: Math.min(0.9, score),
             bestMarket,
             confidence: 0.5
         };
     }
     
-    findBestMarket(predictions, weights) {
+    contextPrediction(game) {
+        // Kontext-basierte Vorhersagen (Top-Spiele, Derbys, etc.)
+        const context = this.analyzeGameContext(game);
+        let scoreModifier = 0;
+        let confidenceModifier = 0;
+        
+        if (context.isTopGame) {
+            // Top-Spiele sind unberechenbarer
+            scoreModifier -= 0.1;
+            confidenceModifier -= 0.2;
+        }
+        
+        if (context.isDerby) {
+            // Derbys sind emotionaler
+            scoreModifier -= 0.05;
+        }
+        
+        if (context.hasMotivationFactors) {
+            // Motivation kann Spiele beeinflussen
+            confidenceModifier -= 0.1;
+        }
+        
+        return {
+            score: 0.5 + scoreModifier,
+            bestMarket: "1", // Neutral
+            confidence: 0.5 + confidenceModifier,
+            context
+        };
+    }
+    
+    analyzeGameContext(game) {
+        const topTeams = ["Bayern", "Dortmund", "Real Madrid", "Barcelona", "Manchester", "City", "Liverpool", "Juventus", "Milan", "Inter"];
+        const isHomeTop = topTeams.some(team => game.home.includes(team));
+        const isAwayTop = topTeams.some(team => game.away.includes(team));
+        
+        return {
+            isTopGame: isHomeTop && isAwayTop,
+            isDerby: this.isDerby(game.home, game.away),
+            hasMotivationFactors: this.hasMotivationFactors(game),
+            homeTeamTier: this.getTeamTier(game.home),
+            awayTeamTier: this.getTeamTier(game.away)
+        };
+    }
+    
+    isDerby(home, away) {
+        const derbies = [
+            ["Bayern", "Dortmund"],
+            ["Real Madrid", "Barcelona"],
+            ["Manchester United", "Manchester City"],
+            ["Liverpool", "Everton"],
+            ["Milan", "Inter"],
+            ["Arsenal", "Tottenham"]
+        ];
+        
+        return derbies.some(derby => 
+            (home.includes(derby[0]) && away.includes(derby[1])) ||
+            (home.includes(derby[1]) && away.includes(derby[0]))
+        );
+    }
+    
+    hasMotivationFactors(game) {
+        // Einfache Motivation-Faktoren
+        return game.home.includes("Bayern") || game.away.includes("Bayern") ||
+               game.home.includes("Real Madrid") || game.away.includes("Real Madrid");
+    }
+    
+    getTeamTier(teamName) {
+        const topTier = ["Bayern", "Dortmund", "Real Madrid", "Barcelona", "Manchester", "City", "Liverpool", "Juventus"];
+        const midTier = ["Leipzig", "Leverkusen", "Sevilla", "Atletico", "Arsenal", "Tottenham", "Milan", "Inter"];
+        
+        if (topTier.some(team => teamName.includes(team))) return "TOP";
+        if (midTier.some(team => teamName.includes(team))) return "MID";
+        return "LOW";
+    }
+    
+    calculateMarketScores(predictions, weights, totalWeight) {
         const marketScores = {};
         
         for (const [modelName, prediction] of Object.entries(predictions)) {
-            const weight = weights[modelName];
+            const weight = weights[modelName] / totalWeight;
             const market = prediction.bestMarket;
+            const modelScore = prediction.score * weight;
             
             if (!marketScores[market]) marketScores[market] = 0;
-            marketScores[market] += prediction.score * weight;
+            marketScores[market] += modelScore;
         }
         
+        return marketScores;
+    }
+    
+    calculateConfidence(predictions, weights, game) {
+        let totalConfidence = 0;
+        let totalWeight = 0;
+        
+        for (const [modelName, prediction] of Object.entries(predictions)) {
+            const weight = weights[modelName];
+            totalConfidence += prediction.confidence * weight;
+            totalWeight += weight;
+        }
+        
+        let baseConfidence = totalConfidence / totalWeight;
+        
+        // Datenqualitäts-Bonus
+        if (game.h2hData?.available && game.h2hData.totalGames >= 5) {
+            baseConfidence += 0.15;
+        }
+        
+        if (game.form.home !== 0.5 && game.form.away !== 0.5) {
+            baseConfidence += 0.1;
+        }
+        
+        return Math.min(0.95, Math.max(0.1, baseConfidence));
+    }
+    
+    getFallbackPrediction(game) {
+        // Einfache Fallback-Logik
+        const { prob, value } = game;
+        const markets = [
+            { type: "1", score: prob.home * (1 + Math.max(0, value.home)) },
+            { type: "X", score: prob.draw * (1 + Math.max(0, value.draw)) },
+            { type: "2", score: prob.away * (1 + Math.max(0, value.away)) },
+            { type: "Over 2.5", score: prob.over25 * (1 + Math.max(0, value.over25)) }
+        ];
+        
+        const best = markets.reduce((a, b) => b.score > a.score ? b : a);
+        
+        return {
+            ensembleScore: best.score,
+            bestMarket: best.type,
+            predictions: { fallback: { score: best.score, bestMarket: best.type, confidence: 0.3 } },
+            weights: { fallback: 1 },
+            confidence: 0.3,
+            marketScores: { [best.type]: best.score },
+            modelVersion: "FALLBACK"
+        };
+    }
+    
+    findBestMarket(marketScores) {
         return Object.keys(marketScores).reduce((a, b) => 
             marketScores[b] > marketScores[a] ? b : a
         );
     }
-    
-    calculateModelConfidence(predictions) {
-        const scores = Object.values(predictions).map(p => p.confidence);
-        return scores.reduce((a, b) => a + b, 0) / scores.length;
+}
+// server.js - KOMPLETTE OPTIMIERTE VERSION - TEIL 3/4
+
+// OPTIMIERT: KI-Empfehlungs Funktionen
+function getOptimizedAIRecommendation(game, leagueName) {
+    try {
+        const predictor = new AdvancedEnsemblePredictor();
+        const ensembleResult = predictor.predict(game, leagueName);
+        const riskAnalysis = analyzeAdvancedRisk(game, ensembleResult);
+        
+        return createOptimizedRecommendation(ensembleResult, riskAnalysis, game);
+        
+    } catch (error) {
+        console.error("Advanced KI Fehler:", error);
+        return getReliableFallbackRecommendation(game);
     }
 }
 
-// KI-Empfehlungs Funktionen
-function getAdvancedAIRecommendation(game, leagueName) {
-    const predictor = new EnsemblePredictor();
-    const ensembleResult = predictor.predict(game, leagueName);
-    const baseRisk = analyzeRisk(game);
+function analyzeAdvancedRisk(game, ensembleResult) {
+    const { prob, value, homeXG, awayXG, form, h2hData } = game;
     
-    const contextAdjusted = applyContextAdjustments(ensembleResult, game);
-    const gameType = getGameType(game);
+    const riskFactors = {
+        // Prob-basierte Risiken
+        closeMatch: Math.abs(prob.home - prob.away) < 0.15 ? 0.8 : 0.1,
+        lowProbability: Math.max(prob.home, prob.draw, prob.away) < 0.4 ? 0.7 : 0.1,
+        
+        // xG-basierte Risiken
+        lowScoring: (homeXG + awayXG) < 2.2 ? 0.6 : 0.1,
+        xgUnreliable: Math.abs(homeXG - awayXG) > 1.5 ? 0.4 : 0.1,
+        
+        // Form-basierte Risiken
+        poorForm: form.home < 0.3 || form.away < 0.3 ? 0.5 : 0.1,
+        inconsistentForm: Math.abs(form.home - form.away) > 0.5 ? 0.4 : 0.1,
+        
+        // Value-basierte Risiken
+        negativeValue: Object.values(value).some(v => v < -0.2) ? 0.6 : 0.1,
+        
+        // H2H-basierte Risiken
+        insufficientH2H: !h2hData?.available || h2hData.totalGames < 3 ? 0.4 : 0.1,
+        conflictingH2H: h2hData?.available && Math.abs(h2hData.homeWinPercentage - h2hData.awayWinPercentage) < 10 ? 0.3 : 0.1,
+        
+        // Ensemble-basierte Risiken
+        lowConfidence: ensembleResult.confidence < 0.5 ? 0.5 : 0.1,
+        conflictingModels: hasConflictingPredictions(ensembleResult.predictions) ? 0.4 : 0.1
+    };
     
-    return createFinalRecommendation(contextAdjusted, baseRisk, game, gameType);
+    const riskScore = (
+        riskFactors.closeMatch * 0.15 +
+        riskFactors.lowProbability * 0.12 +
+        riskFactors.lowScoring * 0.10 +
+        riskFactors.poorForm * 0.10 +
+        riskFactors.negativeValue * 0.12 +
+        riskFactors.insufficientH2H * 0.08 +
+        riskFactors.lowConfidence * 0.15 +
+        riskFactors.conflictingModels * 0.08 +
+        riskFactors.xgUnreliable * 0.05 +
+        riskFactors.inconsistentForm * 0.05
+    );
+    
+    return {
+        score: Math.min(1, riskScore),
+        level: riskScore > 0.7 ? "SEHR HOCH" : 
+               riskScore > 0.5 ? "HOCH" : 
+               riskScore > 0.3 ? "MEDIUM" : "NIEDRIG",
+        factors: riskFactors,
+        warnings: generateRiskWarnings(riskFactors)
+    };
 }
 
-function applyContextAdjustments(ensembleResult, game) {
-    let adjusted = { ...ensembleResult };
-    
-    if (getGameType(game) === "TOP_GAME") {
-        adjusted.ensembleScore *= 0.9;
-    }
-    
-    if (adjusted.bestMarket === "1" && adjusted.ensembleScore < 0.7) {
-        adjusted.ensembleScore += 0.05;
-    }
-    
-    return adjusted;
+function hasConflictingPredictions(predictions) {
+    const markets = Object.values(predictions).map(p => p.bestMarket);
+    const uniqueMarkets = new Set(markets);
+    return uniqueMarkets.size > 2; // Mehr als 2 verschiedene Märkte = Konflikt
 }
 
-function getGameType(game) {
-    const isTopGame = game.home.includes("Bayern") || game.home.includes("Dortmund") || 
-                     game.away.includes("Bayern") || game.away.includes("Dortmund") ||
-                     game.home.includes("Real") || game.home.includes("Barcelona") ||
-                     game.away.includes("Real") || game.away.includes("Barcelona");
+function generateRiskWarnings(riskFactors) {
+    const warnings = [];
     
-    return isTopGame ? "TOP_GAME" : "NORMAL";
+    if (riskFactors.closeMatch > 0.5) warnings.push("Sehr ausgeglichene Wahrscheinlichkeiten");
+    if (riskFactors.lowProbability > 0.5) warnings.push("Geringe Siegwahrscheinlichkeit");
+    if (riskFactors.lowScoring > 0.5) warnings.push("Geringe Torerwartung");
+    if (riskFactors.poorForm > 0.5) warnings.push("Schlechte Teamform");
+    if (riskFactors.negativeValue > 0.5) warnings.push("Negative Value Werte");
+    if (riskFactors.insufficientH2H > 0.5) warnings.push("Wenige H2H Daten");
+    if (riskFactors.lowConfidence > 0.5) warnings.push("Geringe KI-Konfidenz");
+    
+    return warnings;
 }
 
-function createFinalRecommendation(ensembleResult, risk, game, gameType) {
-    const { ensembleScore, bestMarket, modelConfidence } = ensembleResult;
-    const riskAdjustedConfidence = modelConfidence * (1 - risk.score * 0.5);
+function createOptimizedRecommendation(ensembleResult, riskAnalysis, game) {
+    const { ensembleScore, bestMarket, confidence, marketScores } = ensembleResult;
+    const { score: riskScore, level: riskLevel } = riskAnalysis;
     
-    let recommendation, reasoning, confidence;
+    // Risiko-angepasster Score
+    const riskAdjustedScore = ensembleScore * (1 - riskScore * 0.4);
+    const confidenceBoost = game.h2hData?.available ? 0.1 : 0;
+    const finalConfidence = Math.min(0.95, confidence + confidenceBoost);
     
-    if (risk.score < 0.3 && ensembleScore > 0.65 && riskAdjustedConfidence > 0.7) {
+    let recommendation, reasoning;
+    
+    // Entscheidungslogik mit besseren Thresholds
+    if (riskScore < 0.3 && riskAdjustedScore > 0.65 && finalConfidence > 0.7) {
         recommendation = "STRONG_BET";
-        confidence = "SEHR HOCH";
-        reasoning = `Ensemble-KI: ${bestMarket} mit Score ${(ensembleScore * 100).toFixed(1)}% - Klare Kante`;
+        reasoning = `🏆 STARKE EMPFEHLUNG: ${bestMarket} (Score: ${(riskAdjustedScore * 100).toFixed(1)}%)`;
     } 
-    else if (risk.score < 0.5 && ensembleScore > 0.55 && riskAdjustedConfidence > 0.6) {
+    else if (riskScore < 0.4 && riskAdjustedScore > 0.58 && finalConfidence > 0.6) {
         recommendation = "VALUE_BET";
-        confidence = "HOCH";
-        reasoning = `Ensemble-KI: ${bestMarket} bietet starke Value (Score: ${(ensembleScore * 100).toFixed(1)}%)`;
+        reasoning = `💰 VALUE WETTE: ${bestMarket} bietet gutes Potenzial (Score: ${(riskAdjustedScore * 100).toFixed(1)}%)`;
     }
-    else if (risk.score < 0.6 && ensembleScore > 0.45) {
+    else if (riskScore < 0.5 && riskAdjustedScore > 0.50) {
         recommendation = "CAUTIOUS_BET";
-        confidence = "MEDIUM";
-        reasoning = `Ensemble-KI: ${bestMarket} als vorsichtige Option (Score: ${(ensembleScore * 100).toFixed(1)}%)`;
+        reasoning = `⚠️ VORSICHTIG: ${bestMarket} als Option (Score: ${(riskAdjustedScore * 100).toFixed(1)}%)`;
     }
     else {
         recommendation = "AVOID";
-        confidence = "NIEDRIG";
-        reasoning = `Ensemble-KI: Keine klare Kante (Score: ${(ensembleScore * 100).toFixed(1)}%, Risiko: ${risk.level})`;
+        reasoning = `🚫 VERMEIDEN: Zu hohes Risiko (${riskLevel}) oder unklare Kante`;
     }
     
-    if (gameType === "TOP_GAME") {
-        reasoning += " | Achtung: Top-Spiel - erhöhte Unberechenbarkeit";
+    // Detaillierte Begründung
+    reasoning += generateDetailedReasoning(game, ensembleResult, riskAnalysis);
+    
+    // Debug-Ausgabe
+    debugKIRecommendation(game, {
+        recommendation,
+        bestMarket,
+        bestScore: riskAdjustedScore,
+        confidence: getConfidenceLevel(finalConfidence),
+        risk: riskAnalysis
+    });
+    
+    return {
+        recommendation,
+        confidence: getConfidenceLevel(finalConfidence),
+        reasoning,
+        bestMarket,
+        bestScore: riskAdjustedScore,
+        risk: riskAnalysis,
+        ensembleData: ensembleResult,
+        modelType: "ADVANCED_ENSEMBLE_V2",
+        timestamp: new Date().toISOString(),
+        marketAnalysis: Object.entries(marketScores)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 3)
+            .map(([market, score]) => ({ market, score: (score * 100).toFixed(1) + '%' }))
+    };
+}
+
+function generateDetailedReasoning(game, ensembleResult, riskAnalysis) {
+    let details = "";
+    
+    // H2H Insights
+    if (game.h2hData?.available) {
+        details += ` | H2H: ${game.h2hData.homeWinPercentage.toFixed(0)}%-${game.h2hData.drawPercentage.toFixed(0)}%-${game.h2hData.awayWinPercentage.toFixed(0)}%`;
+        if (game.h2hData.strength !== 0) {
+            details += game.h2hData.strength > 0 ? " (Heimstärke)" : " (Auswärtsstärke)";
+        }
     }
     
-    // Datenquelle hinzufügen
-    if (game.h2hData?.dataSource === "SPORTDATA_ORG") {
-        reasoning += " | 📊 Mit echten H2H Daten";
+    // Form Insights
+    details += ` | Form: ${(game.form.home * 100).toFixed(0)}%-${(game.form.away * 100).toFixed(0)}%`;
+    
+    // xG Insights
+    details += ` | xG: ${game.homeXG}-${game.awayXG}`;
+    
+    // Top Modelle
+    const topModels = Object.entries(ensembleResult.predictions)
+        .sort(([,a], [,b]) => b.score - a.score)
+        .slice(0, 2)
+        .map(([model]) => model);
+    
+    details += ` | Top-Modelle: ${topModels.join(", ")}`;
+    
+    // Warnungen
+    if (riskAnalysis.warnings.length > 0) {
+        details += ` | Warnungen: ${riskAnalysis.warnings.join(", ")}`;
+    }
+    
+    return details;
+}
+
+function getConfidenceLevel(confidence) {
+    if (confidence > 0.8) return "SEHR HOCH";
+    if (confidence > 0.65) return "HOCH";
+    if (confidence > 0.5) return "MEDIUM";
+    return "NIEDRIG";
+}
+
+function getReliableFallbackRecommendation(game) {
+    const { prob, value } = game;
+    
+    const markets = [
+        { type: "1", prob: prob.home, value: value.home },
+        { type: "X", prob: prob.draw, value: value.draw },
+        { type: "2", prob: prob.away, value: value.away },
+        { type: "Over 2.5", prob: prob.over25, value: value.over25 },
+        { type: "BTTS Ja", prob: prob.btts, value: value.btts }
+    ];
+    
+    const ratedMarkets = markets.map(market => ({
+        ...market,
+        score: market.prob * (1 + Math.max(0, market.value))
+    })).sort((a, b) => b.score - a.score);
+    
+    const bestMarket = ratedMarkets[0];
+    const risk = analyzeBasicRisk(game);
+    
+    let recommendation, reasoning;
+    
+    if (risk.score < 0.4 && bestMarket.score > 0.6) {
+        recommendation = "STRONG_BET";
+        reasoning = `Basic-KI: ${bestMarket.type} mit ${(bestMarket.prob * 100).toFixed(1)}% Wahrscheinlichkeit`;
+    } 
+    else if (risk.score < 0.5 && bestMarket.score > 0.5 && bestMarket.value > 0.1) {
+        recommendation = "VALUE_BET";
+        reasoning = `Basic-KI: ${bestMarket.type} bietet ${(bestMarket.value * 100).toFixed(1)}% Value`;
+    }
+    else if (risk.score < 0.6 && bestMarket.score > 0.4) {
+        recommendation = "CAUTIOUS_BET";
+        reasoning = `Basic-KI: ${bestMarket.type} als Option`;
+    }
+    else {
+        recommendation = "AVOID";
+        reasoning = `Basic-KI: Risiko zu hoch (${risk.level})`;
     }
     
     return {
         recommendation,
-        confidence,
+        confidence: "MEDIUM",
         reasoning,
-        bestMarket,
-        bestScore: ensembleScore,
+        bestMarket: bestMarket.type,
+        bestScore: bestMarket.score,
         risk: risk,
-        ensembleData: ensembleResult,
-        gameType,
-        modelConfidence: riskAdjustedConfidence,
+        modelType: "BASIC_FALLBACK",
         timestamp: new Date().toISOString()
     };
 }
 
-function analyzeRisk(game) {
+function analyzeBasicRisk(game) {
     const { prob, value, homeXG, awayXG, form } = game;
     
     const factors = {
@@ -692,61 +1073,23 @@ function analyzeRisk(game) {
     };
 }
 
-function getBasicAIRecommendation(game) {
-    const risk = analyzeRisk(game);
-    const { prob, value } = game;
-    
-    const markets = [
-        { type: "1", prob: prob.home, value: value.home },
-        { type: "X", prob: prob.draw, value: value.draw },
-        { type: "2", prob: prob.away, value: value.away },
-        { type: "Over 2.5", prob: prob.over25, value: value.over25 },
-        { type: "BTTS Ja", prob: prob.btts, value: value.btts }
-    ];
-    
-    const ratedMarkets = markets.map(market => ({
-        ...market,
-        score: market.prob * (1 + Math.max(0, market.value))
-    })).sort((a, b) => b.score - a.score);
-    
-    const bestMarket = ratedMarkets[0];
-    
-    let recommendation, reasoning, confidence;
-    
-    if (risk.score < 0.3 && bestMarket.score > 0.6) {
-        recommendation = "STRONG_BET";
-        confidence = "SEHR HOCH";
-        reasoning = `Basic-KI: ${bestMarket.type} mit ${(bestMarket.prob * 100).toFixed(1)}% Wahrscheinlichkeit`;
-    } 
-    else if (risk.score < 0.5 && bestMarket.score > 0.45 && bestMarket.value > 0.1) {
-        recommendation = "VALUE_BET";
-        confidence = "HOCH";
-        reasoning = `Basic-KI: ${bestMarket.type} bietet ${(bestMarket.value * 100).toFixed(1)}% Value`;
-    }
-    else if (risk.score < 0.6 && bestMarket.score > 0.35) {
-        recommendation = "CAUTIOUS_BET";
-        confidence = "MEDIUM";
-        reasoning = `Basic-KI: ${bestMarket.type} als Option`;
-    }
-    else {
-        recommendation = "AVOID";
-        confidence = "NIEDRIG";
-        reasoning = `Basic-KI: Risiko zu hoch (${risk.level})`;
-    }
-    
-    return {
-        recommendation,
-        confidence,
-        reasoning,
-        bestMarket: bestMarket.type,
-        bestScore: bestMarket.score,
-        risk: risk,
-        modelType: "BASIC",
-        timestamp: new Date().toISOString()
-    };
+// Debug-Funktion um KI-Entscheidungen zu verstehen
+function debugKIRecommendation(game, recommendation) {
+    console.log("🔍 KI-DEBUG:", {
+        spiel: `${game.home} vs ${game.away}`,
+        liga: game.league,
+        empfehlung: recommendation.recommendation,
+        market: recommendation.bestMarket,
+        score: (recommendation.bestScore * 100).toFixed(1) + '%',
+        confidence: recommendation.confidence,
+        risiko: recommendation.risk.level,
+        h2hDaten: game.h2hData?.available ? `${game.h2hData.totalGames} Spiele` : 'Nein',
+        form: `H:${(game.form.home * 100).toFixed(0)}% A:${(game.form.away * 100).toFixed(0)}%`,
+        xg: `H:${game.homeXG} A:${game.awayXG}`
+    });
 }
 
-// Mathefunktionen
+// Mathefunktionen (bleiben gleich)
 function factorial(n) { 
     if (n === 0) return 1;
     let result = 1;
@@ -822,8 +1165,9 @@ function expectedGoals(homeOdds, awayOdds, leagueAvgGoals, homeForm, awayForm) {
         away: Math.max(0.2, Math.min(3.0, baseAwayXG))
     };
 }
+// server.js - KOMPLETTE OPTIMIERTE VERSION - TEIL 4/4
 
-// Haupt-API Route
+// Haupt-API Route (angepasst für optimiertes KI-Modell)
 app.get("/api/games", async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
     const date = req.query.date || today;
@@ -888,10 +1232,10 @@ app.get("/api/games", async (req, res) => {
                 // ECKTE H2H Daten mit SportData.org
                 const h2hData = await getRealH2H(home, away, league.sportdataId);
 
-                // Ensemble KI mit echten Daten
+                // OPTIMIERT: Ensemble KI mit neuem Modell
                 let aiRecommendation;
                 try {
-                    aiRecommendation = getAdvancedAIRecommendation(
+                    aiRecommendation = getOptimizedAIRecommendation(
                         { 
                             home, away, league: league.name, odds, prob, value, 
                             homeXG, awayXG, 
@@ -900,12 +1244,12 @@ app.get("/api/games", async (req, res) => {
                         },
                         league.name
                     );
-                    aiRecommendation.modelType = "ENSEMBLE_PRO";
+                    aiRecommendation.modelType = "ADVANCED_ENSEMBLE_V2";
                     aiRecommendation.dataSource = "REAL_DATA";
                     
                 } catch (error) {
                     console.error("Advanced KI Fehler:", error);
-                    aiRecommendation = getBasicAIRecommendation(
+                    aiRecommendation = getReliableFallbackRecommendation(
                         { home, away, league: league.name, odds, prob, value, homeXG, awayXG, form: { home: homeForm, away: awayForm }, h2hData }
                     );
                 }
@@ -951,7 +1295,7 @@ app.get("/api/games", async (req, res) => {
     res.json({ response: games });
 });
 
-// Performance Route
+// Performance Route (bleibt gleich)
 app.get("/api/performance", (req, res) => {
     if (!fs.existsSync(PERFORMANCE_FILE)) {
         return res.json({ predictions: {}, overall: { total: 0, correct: 0, accuracy: 0 } });
@@ -960,7 +1304,45 @@ app.get("/api/performance", (req, res) => {
     res.json(data);
 });
 
+// Cache Cleaning (neu hinzufügen)
+function cleanOldCache() {
+    const now = Date.now();
+    const maxAge = 30 * 60 * 1000; // 30 Minuten
+    
+    // Clean CACHE
+    Object.keys(CACHE).forEach(key => {
+        // Einfache Cache-Logik - in Produktion würde man timestamps speichern
+        if (Math.random() < 0.1) { // 10% Chance zu cleannen pro Aufruf
+            delete CACHE[key];
+        }
+    });
+    
+    // Clean TEAM_CACHE nach 1 Stunde
+    Object.keys(TEAM_CACHE).forEach(key => {
+        if (Math.random() < 0.05) { // 5% Chance zu cleannen
+            delete TEAM_CACHE[key];
+        }
+    });
+    
+    // Clean H2H_CACHE nach 2 Stunden  
+    Object.keys(H2H_CACHE).forEach(key => {
+        if (Math.random() < 0.03) { // 3% Chance zu cleannen
+            delete H2H_CACHE[key];
+        }
+    });
+}
+
+// Cache Cleaning alle 10 Minuten
+setInterval(cleanOldCache, 10 * 60 * 1000);
+
 // Start
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.listen(PORT, () => console.log(`🚀 Server läuft auf Port ${PORT} (MIT ECHTEN SportData.org DATEN)`));
+
+app.listen(PORT, () => {
+    console.log(`🚀 Server läuft auf Port ${PORT}`);
+    console.log(`📊 KI-Modell: ADVANCED_ENSEMBLE_V2 aktiviert`);
+    console.log(`🔧 Datenquellen: Odds-API + SportData.org`);
+    console.log(`💡 Debug-Modus: KI-Entscheidungen werden geloggt`);
+});
