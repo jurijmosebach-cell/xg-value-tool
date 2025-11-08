@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.static(__dirname));
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
-const SPORTDATA_API_KEY = process.env.SPORTDATA_API_KEY;
+const SPORTDATA_API_KEY = process.env.FOOTBALL_DATA_API_KEY;
 
 if (!ODDS_API_KEY) console.error("❌ FEHLER: ODDS_API_KEY fehlt!");
 if (!SPORTDATA_API_KEY) console.error("❌ FEHLER: SPORTDATA_API_KEY fehlt!");
