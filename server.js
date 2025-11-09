@@ -1,14 +1,10 @@
-// server.js - GARANTIERT FUNKTIONIERENDE VERSION - TEIL 1/4
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import "dotenv/config";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// server.js - COMMONJS VERSION (FUNKTIONIERT AUF RENDER) - TEIL 1/4
+const express = require("express");
+const fetch = require("node-fetch");
+const cors = require("cors");
+const path = require("path");
+const fs = require("fs");
+require("dotenv").config();
 
 const app = express();
 app.use(cors());
@@ -316,7 +312,7 @@ function expectedGoals(homeOdds, awayOdds, leagueAvgGoals, homeForm, awayForm) {
         away: Math.max(0.2, Math.min(3.0, baseAwayXG))
     };
 }
-// server.js - GARANTIERT FUNKTIONIERENDE VERSION - TEIL 2/4
+// server.js - COMMONJS VERSION (FUNKTIONIERT AUF RENDER) - TEIL 2/4
 
 // HAUPT-API ROUTE - FUNKTIONIERT IMMER
 app.get("/api/games", async (req, res) => {
@@ -596,8 +592,8 @@ app.get("/api/games", async (req, res) => {
             "✅ Echte Odds-Daten geladen" : 
             "🧪 Demo-Daten - Füge ODDS_API_KEY für echte Daten hinzu"
     });
-}
-// server.js - GARANTIERT FUNKTIONIERENDE VERSION - TEIL 3/4
+});
+// server.js - COMMONJS VERSION (FUNKTIONIERT AUF RENDER) - TEIL 3/4
 
 // OPTIMIERTE KI-EMPFEHLUNGS FUNKTION
 function getOptimizedAIRecommendation(game, leagueName) {
@@ -899,7 +895,7 @@ app.post("/api/performance/update-result", express.json(), (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-// server.js - GARANTIERT FUNKTIONIERENDE VERSION - TEIL 4/4
+// server.js - COMMONJS VERSION (FUNKTIONIERT AUF RENDER) - TEIL 4/4
 
 // CACHE CLEANING
 function cleanOldCache() {
@@ -1114,3 +1110,8 @@ app.listen(PORT, () => {
     console.log("💡 Tipp: Füge ODDS_API_KEY zu .env hinzu für echte Daten!");
     console.log("=".repeat(50) + "\n");
 });
+
+// Export für Tests (falls benötigt)
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = app;
+}
