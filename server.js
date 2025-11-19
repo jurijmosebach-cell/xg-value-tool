@@ -1,4 +1,4 @@
-// server.js - PROFESSIONELLE VERSION MIT KORRIGIERTEN LIGEN
+// server.js - PROFESSIONELLE VERSION MIT KORRIGIERTER ODDS-EXTRAKTION - TEIL 1/4
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -282,6 +282,7 @@ const PROFESSIONAL_TEAM_MAPPINGS = {
     "Sporting CP": "Sporting CP",
     "Porto": "FC Porto"
 };
+// server.js - PROFESSIONELLE VERSION MIT KORRIGIERTER ODDS-EXTRAKTION - TEIL 2/4
 
 // PROFESSIONELLE TEAM-MATCHING FUNKTION
 function findProfessionalTeamMatch(teamName) {
@@ -591,7 +592,7 @@ async function getProfessionalH2H(homeTeam, awayTeam, leagueCode) {
         // Head-to-Head Spiele abrufen - beide Teams durchsuchen
         let allH2HMatches = [];
         
-          // Spiele von Home Team durchsuchen
+        // Spiele von Home Team durchsuchen
         const homeMatchesUrl = `${FOOTBALL_DATA_CONFIG.baseURL}/teams/${homeId}/matches?status=FINISHED&limit=30`;
         const homeMatchesRes = await fetch(homeMatchesUrl, {
             headers: FOOTBALL_DATA_CONFIG.headers
@@ -757,7 +758,7 @@ function getProfessionalSimulatedH2H(homeTeam, awayTeam) {
     };
 }
 
-  // PROFESSIONELLE H2H TREND-ANALYSE
+// PROFESSIONELLE H2H TREND-ANALYSE
 function analyzeProfessionalH2HTrend(stats) {
     const trends = [];
     
@@ -785,6 +786,8 @@ function calculateProfessionalH2HStrength(stats) {
     
     return strength;
 }
+
+    // server.js - PROFESSIONELLE VERSION MIT KORRIGIERTER ODDS-EXTRAKTION - TEIL 3/4
 
 // PROFESSIONELLE MATHE-FUNKTIONEN
 function professionalFactorial(n) { 
@@ -1233,6 +1236,7 @@ class ProfessionalEnsemblePredictor {
     
     calculateProfessionalMarketScores(predictions, weights, totalWeight) {
         const marketScores = {};
+        
         for (const [modelName, prediction] of Object.entries(predictions)) {
             const weight = weights[modelName] / totalWeight;
             const market = prediction.bestMarket;
@@ -1303,7 +1307,7 @@ class ProfessionalEnsemblePredictor {
     }
 }
 
-      // PROFESSIONELLE KI-EMPFEHLUNGS FUNKTIONEN
+// PROFESSIONELLE KI-EMPFEHLUNGS FUNKTIONEN
 function getProfessionalAIRecommendation(game, leagueName) {
     try {
         const predictor = new ProfessionalEnsemblePredictor();
@@ -1623,8 +1627,27 @@ function analyzeProfessionalBasicRisk(game) {
         level: riskScore > 0.65 ? "SEHR HOCH" : riskScore > 0.45 ? "HOCH" : riskScore > 0.25 ? "MEDIUM" : "NIEDRIG",
         factors: factors
     };
- }  
-// HAUPT-API ROUTE FÜR PROFESSIONELLE ANALYSE
+}
+
+function debugProfessionalRecommendation(game, recommendation) {
+    console.log("🔍 PROFESSIONAL KI-DEBUG:", {
+        spiel: `${game.home} vs ${game.away}`,
+        liga: game.league,
+        empfehlung: recommendation.recommendation,
+        market: recommendation.bestMarket,
+        score: (recommendation.bestScore * 100).toFixed(1) + '%',
+        confidence: recommendation.confidence,
+        risiko: recommendation.risk.level,
+        risikoKategorie: recommendation.risk.riskCategory,
+        h2hDaten: game.h2hData?.available ? `${game.h2hData.totalGames} Spiele (${game.h2hData.dataQuality})` : 'Nein',
+        form: `H:${(game.form.home * 100).toFixed(0)}% A:${(game.form.away * 100).toFixed(0)}%`,
+        xg: `H:${game.homeXG} A:${game.awayXG} T:${game.totalXG}`,
+        dataQuality: game.dataQuality
+    });
+}
+// server.js - PROFESSIONELLE VERSION MIT KORRIGIERTER ODDS-EXTRAKTION - TEIL 4/4
+
+// HAUPT-API ROUTE FÜR PROFESSIONELLE ANALYSE - KORRIGIERTE ODDS-EXTRAKTION
 app.get("/api/games", async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
     const date = req.query.date || today;
@@ -1644,15 +1667,26 @@ app.get("/api/games", async (req, res) => {
             console.log(`📡 Lade Odds für: ${league.name} (${league.footballDataId})`);
             
             const oddsUrl = `https://api.the-odds-api.com/v4/sports/${league.key}/odds?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso`;
-            const resOdds = await fetch(oddsUrl);
             
+            // DEBUG: Überprüfe API Response
+            console.log(`🔧 Odds API URL: ${oddsUrl}`);
+            const resOdds = await fetch(oddsUrl);
+            console.log(`📊 Odds API Status: ${resOdds.status}`);
+
             if (!resOdds.ok) {
-                console.log(`❌ Keine Odds-Daten für ${league.name}`);
+                console.log(`❌ Odds API Fehler: ${resOdds.status} ${resOdds.statusText}`);
+                const errorText = await resOdds.text();
+                console.log(`❌ Odds API Error Details: ${errorText}`);
                 continue;
             }
-            
+
             const data = await resOdds.json();
             console.log(`✅ ${data.length} Spiele gefunden für ${league.name}`);
+
+            if (!data || data.length === 0) {
+                console.log(`❌ Keine Spieldaten in Odds API Response`);
+                continue;
+            }
 
             for (const g of data) {
                 const gameDate = new Date(g.commence_time).toISOString().slice(0, 10);
@@ -1660,22 +1694,52 @@ app.get("/api/games", async (req, res) => {
 
                 const home = g.home_team;
                 const away = g.away_team;
-                const book = g.bookmakers?.[0];
-                if (!book) continue;
+                
+                console.log(`🔍 Analysiere Buchmacher für: ${home} vs ${away}`);
 
-                const h2h = book.markets?.find(m => m.key === "h2h")?.outcomes || [];
-                const totals = book.markets?.find(m => m.key === "totals")?.outcomes || [];
+                // ✅ KORRIGIERT: Finde einen zuverlässigen Buchmacher mit beiden Markets
+                const reliableBookmaker = g.bookmakers?.find(book => {
+                    const hasH2H = book.markets?.find(m => m.key === "h2h");
+                    const hasTotals = book.markets?.find(m => m.key === "totals");
+                    return hasH2H && hasTotals;
+                });
+
+                if (!reliableBookmaker) {
+                    console.log(`❌ Kein zuverlässiger Buchmacher mit H2H & Totals für ${home} vs ${away}`);
+                    continue;
+                }
+
+                console.log(`✅ Verwende Buchmacher: ${reliableBookmaker.title}`);
+
+                const h2h = reliableBookmaker.markets.find(m => m.key === "h2h")?.outcomes || [];
+                const totals = reliableBookmaker.markets.find(m => m.key === "totals")?.outcomes || [];
+
+                // DEBUG: Zeige gefundene Odds
+                console.log(`📊 H2H Odds:`, h2h);
+                console.log(`📊 Totals Odds:`, totals);
+
+                // ✅ KORRIGIERT: Robuste Odds-Extraktion
+                const homeOdds = h2h.find(o => o.name === home)?.price;
+                const drawOdds = h2h.find(o => o.name === "Draw")?.price;
+                const awayOdds = h2h.find(o => o.name === away)?.price;
+                const over25Odds = totals.find(o => o.name === "Over" && o.point === 2.5)?.price;
+
+                // Validiere Odds
+                if (!homeOdds || !awayOdds || !drawOdds) {
+                    console.log(`❌ Ungültige Odds für ${home} vs ${away}: H=${homeOdds}, D=${drawOdds}, A=${awayOdds}`);
+                    continue;
+                }
 
                 const odds = {
-                    home: h2h.find(o => o.name === home)?.price || 0,
-                    draw: h2h.find(o => o.name === "Draw")?.price || 0,
-                    away: h2h.find(o => o.name === away)?.price || 0,
-                    over25: totals.find(o => o.name === "Over" && o.point === 2.5)?.price || 0,
+                    home: homeOdds,
+                    draw: drawOdds,
+                    away: awayOdds,
+                    over25: over25Odds || 1.8, // Fallback für Over/Under
                 };
-                
-                if (!odds.home || !odds.away) continue;
 
-                console.log(`⚽ Analysiere: ${home} vs ${away}`);
+                console.log(`✅ Odds extrahiert: ${home} ${odds.home} | X ${odds.draw} | ${away} ${odds.away} | Over 2.5 ${odds.over25}`);
+
+                console.log(`⚽ Starte KI-Analyse für: ${home} vs ${away}`);
 
                 // PROFESSIONELLE FORM-BERECHNUNG MIT FOOTBALL-DATA.ORG
                 const [homeForm, awayForm] = await Promise.all([
@@ -1789,6 +1853,7 @@ app.get("/api/games", async (req, res) => {
         }
     });
 });
+
 // PROFESSIONELLE PERFORMANCE ROUTE
 app.get("/api/performance", (req, res) => {
     if (!fs.existsSync(PERFORMANCE_FILE)) {
