@@ -1,4 +1,4 @@
-// server.js - PROFESSIONELLE VERSION MIT ECHTEN DATEN - TEIL 1/4
+// server.js - PROFESSIONELLE VERSION MIT KORRIGIERTEN LIGEN
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
@@ -283,114 +283,6 @@ const PROFESSIONAL_TEAM_MAPPINGS = {
     "Porto": "FC Porto"
 };
 
-// server.js - PROFESSIONELLE VERSION MIT FOOTBALL-DATA.ORG - TEIL 1/4
-import express from "express";
-import fetch from "node-fetch";
-import cors from "cors";
-import path from "path";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import "dotenv/config";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = express();
-app.use(cors());
-app.use(express.static(__dirname));
-
-const ODDS_API_KEY = process.env.ODDS_API_KEY;
-const FOOTBALL_DATA_KEY = process.env.SPORTDATA_API_KEY;
-
-if (!ODDS_API_KEY) console.error("❌ FEHLER: ODDS_API_KEY fehlt!");
-if (!FOOTBALL_DATA_KEY) console.error("❌ FEHLER: SPORTDATA_API_KEY (Football-Data) fehlt!");
-
-const PORT = process.env.PORT || 10000;
-const DATA_DIR = path.join(__dirname, "data");
-const PERFORMANCE_FILE = path.join(DATA_DIR, "performance.json");
-
-// FOOTBALL-DATA.ORG KONFIGURATION MIT KORREKTEN LIGA-CODES
-const FOOTBALL_DATA_CONFIG = {
-    baseURL: "https://api.football-data.org/v4",
-    headers: {
-        'X-Auth-Token': FOOTBALL_DATA_KEY,
-        'X-Response-Control': 'minified'
-    },
-    leagues: {
-        premier_league: 'PL',        // Premier League
-        bundesliga: 'BL1',           // Bundesliga
-        la_liga: 'PD',               // Primera Division (La Liga)
-        serie_a: 'SA',               // Serie A
-        ligue_1: 'FL1',              // Ligue 1
-        champions_league: 'CL'       // Champions League
-    },
-    currentSeason: 2023,
-    analysis: {
-        formMatches: 8,
-        confidenceThreshold: 0.7
-    }
-};
-
-// PROFESSIONELLE LIGA-DATENBANK MIT KORREKTEN CODES
-const PROFESSIONAL_LEAGUES = [
-    { 
-        key: "soccer_epl", 
-        name: "Premier League", 
-        footballDataId: 'PL',
-        baseXG: [1.65, 1.30], 
-        avgGoals: 2.85,
-        style: "HIGH_TEMPO"
-    },
-    { 
-        key: "soccer_germany_bundesliga", 
-        name: "Bundesliga", 
-        footballDataId: 'BL1',
-        baseXG: [1.75, 1.45], 
-        avgGoals: 3.20,
-        style: "ATTACKING"
-    },
-    { 
-        key: "soccer_spain_la_liga", 
-        name: "La Liga", 
-        footballDataId: 'PD',
-        baseXG: [1.50, 1.25], 
-        avgGoals: 2.75,
-        style: "TECHNICAL"
-    },
-    { 
-        key: "soccer_italy_serie_a", 
-        name: "Serie A", 
-        footballDataId: 'SA',
-        baseXG: [1.55, 1.30], 
-        avgGoals: 2.85,
-        style: "TACTICAL"
-    },
-    { 
-        key: "soccer_france_ligue_one", 
-        name: "Ligue 1", 
-        footballDataId: 'FL1',
-        baseXG: [1.50, 1.25], 
-        avgGoals: 2.75,
-        style: "PHYSICAL"
-    },
-    { 
-        key: "soccer_uefa_champs_league", 
-        name: "Champions League", 
-        footballDataId: 'CL',
-        baseXG: [1.60, 1.40], 
-        avgGoals: 3.00,
-        style: "ELITE"
-    }
-];
-
-const CACHE = {};
-const TEAM_CACHE = {};
-const H2H_CACHE = {};
-let PERFORMANCE_DATA = {};
-
-
-};
-
 // PROFESSIONELLE TEAM-MATCHING FUNKTION
 function findProfessionalTeamMatch(teamName) {
     if (PROFESSIONAL_TEAM_MAPPINGS[teamName]) {
@@ -448,41 +340,109 @@ async function getTeamId(teamName, leagueCode) {
         // Fallback IDs für bekannte Teams
         const fallbackIds = {
             // Premier League
-            'Manchester United FC': 66,
-            'Manchester City FC': 65,
-            'Liverpool FC': 64,
-            'Chelsea FC': 61,
-            'Arsenal FC': 57,
-            'Tottenham Hotspur FC': 73,
-            'Newcastle United FC': 67,
-            'Brighton & Hove Albion FC': 397,
-            'Nottingham Forest FC': 351,
-            'Fulham FC': 63,
-            'Sunderland AFC': 71,
+            'Manchester United': 66,
+            'Manchester City': 65,
+            'Liverpool': 64,
+            'Chelsea': 61,
+            'Arsenal': 57,
+            'Tottenham Hotspur': 73,
+            'Newcastle United': 67,
+            'Brighton and Hove Albion': 397,
+            'Nottingham Forest': 351,
+            'Fulham': 63,
+            'West Ham United': 563,
+            'Aston Villa': 58,
+            'Crystal Palace': 354,
+            'Wolverhampton Wanderers': 76,
+            'Everton': 62,
+            'Brentford': 402,
+            'Sheffield United': 356,
+            'Burnley': 328,
+            'Luton Town': 389,
+            'AFC Bournemouth': 1044,
             
             // Bundesliga
-            'FC Bayern München': 5,
+            'Bayern Munich': 5,
             'Borussia Dortmund': 4,
             'RB Leipzig': 721,
-            'Bayer 04 Leverkusen': 6,
+            'Bayer Leverkusen': 6,
             'VfB Stuttgart': 10,
             'Eintracht Frankfurt': 19,
             'VfL Wolfsburg': 11,
+            'Borussia Mönchengladbach': 18,
+            'TSG Hoffenheim': 2,
+            'SC Freiburg': 17,
+            'FC Augsburg': 16,
+            'Mainz 05': 15,
+            'Union Berlin': 28,
+            'VfL Bochum': 36,
+            'FC Köln': 1,
+            'SV Darmstadt 98': 729,
+            'FC Heidenheim': 44,
             
             // La Liga
-            'Real Madrid CF': 86,
+            'Real Madrid': 86,
             'FC Barcelona': 81,
             'Atlético Madrid': 78,
             'Sevilla FC': 559,
             'Valencia CF': 95,
+            'Athletic Club': 77,
+            'Real Sociedad': 92,
+            'Real Betis': 90,
+            'Villarreal CF': 94,
+            'Getafe CF': 82,
+            'CA Osasuna': 79,
+            'Celta de Vigo': 558,
+            'RCD Mallorca': 89,
+            'Girona FC': 745,
+            'UD Las Palmas': 275,
+            'Rayo Vallecano': 87,
+            'Deportivo Alavés': 263,
+            'Granada CF': 83,
+            'Cádiz CF': 264,
+            'UD Almería': 267,
             
             // Serie A
-            'Juventus FC': 109,
-            'FC Internazionale Milano': 108,
+            'Juventus': 109,
+            'Inter Milan': 108,
             'AC Milan': 98,
-            'SSC Napoli': 113,
+            'Napoli': 113,
             'AS Roma': 100,
-            'SS Lazio': 110
+            'Lazio': 110,
+            'Atalanta': 102,
+            'Fiorentina': 99,
+            'Bologna': 103,
+            'Monza': 1216,
+            'Torino': 106,
+            'Genoa': 107,
+            'Lecce': 866,
+            'Frosinone': 1016,
+            'Sassuolo': 471,
+            'Udinese': 115,
+            'Empoli': 445,
+            'Hellas Verona': 450,
+            'Cagliari': 104,
+            'Salernitana': 379,
+            
+            // Ligue 1
+            'Paris Saint-Germain': 524,
+            'Olympique Marseille': 516,
+            'Olympique Lyon': 523,
+            'AS Monaco': 548,
+            'Lille OSC': 521,
+            'Stade Rennais': 529,
+            'OGC Nice': 522,
+            'RC Lens': 116,
+            'Stade Reims': 547,
+            'Montpellier HSC': 518,
+            'Toulouse FC': 511,
+            'Stade Brestois 29': 512,
+            'RC Strasbourg': 576,
+            'FC Nantes': 543,
+            'Le Havre AC': 581,
+            'FC Metz': 545,
+            'FC Lorient': 534,
+            'Clermont Foot 63': 526
         };
         
         const fallbackId = fallbackIds[mappedTeam];
@@ -504,7 +464,6 @@ async function getTeamId(teamName, leagueCode) {
         return randomId;
     }
 }
-// server.js - PROFESSIONELLE VERSION MIT FOOTBALL-DATA.ORG - TEIL 2/4
 
 // PROFESSIONELLE TEAM-FORM MIT FOOTBALL-DATA.ORG
 async function getProfessionalTeamForm(teamName, leagueCode) {
@@ -632,7 +591,7 @@ async function getProfessionalH2H(homeTeam, awayTeam, leagueCode) {
         // Head-to-Head Spiele abrufen - beide Teams durchsuchen
         let allH2HMatches = [];
         
-        // Spiele von Home Team durchsuchen
+          // Spiele von Home Team durchsuchen
         const homeMatchesUrl = `${FOOTBALL_DATA_CONFIG.baseURL}/teams/${homeId}/matches?status=FINISHED&limit=30`;
         const homeMatchesRes = await fetch(homeMatchesUrl, {
             headers: FOOTBALL_DATA_CONFIG.headers
@@ -798,7 +757,7 @@ function getProfessionalSimulatedH2H(homeTeam, awayTeam) {
     };
 }
 
-// PROFESSIONELLE H2H TREND-ANALYSE
+  // PROFESSIONELLE H2H TREND-ANALYSE
 function analyzeProfessionalH2HTrend(stats) {
     const trends = [];
     
@@ -826,9 +785,85 @@ function calculateProfessionalH2HStrength(stats) {
     
     return strength;
 }
-// server.js - PROFESSIONELLE VERSION MIT FOOTBALL-DATA.ORG - TEIL 3/4
 
-// PROFESSIONELLES ENSEMBLE KI-MODELL (BLEIBT UNVERÄNDERT)
+// PROFESSIONELLE MATHE-FUNKTIONEN
+function professionalFactorial(n) { 
+    if (n === 0) return 1;
+    let result = 1;
+    for (let i = 2; i <= n; i++) result *= i;
+    return result;
+}
+
+function professionalPoisson(k, λ) { 
+    return (Math.pow(λ, k) * Math.exp(-λ)) / professionalFactorial(k); 
+}
+
+function computeProfessionalMatchProb(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 10) {
+    let pHome = 0, pDraw = 0, pAway = 0;
+    const homeAdj = homeXG * (0.82 + homeForm * 0.36);
+    const awayAdj = awayXG * (0.82 + awayForm * 0.36);
+    
+    for (let h = 0; h <= max; h++) {
+        for (let a = 0; a <= max; a++) {
+            const p = professionalPoisson(h, homeAdj) * professionalPoisson(a, awayAdj);
+            if (h > a) pHome += p;
+            else if (h === a) pDraw += p;
+            else pAway += p;
+        }
+    }
+    
+    const total = pHome + pDraw + pAway;
+    return { 
+        home: pHome / total, 
+        draw: pDraw / total, 
+        away: pAway / total 
+    };
+}
+
+function professionalProbOver25(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 10) {
+    let p = 0;
+    const homeAdj = homeXG * (0.88 + homeForm * 0.24);
+    const awayAdj = awayXG * (0.88 + awayForm * 0.24);
+    
+    for (let h = 0; h <= max; h++) {
+        for (let a = 0; a <= max; a++) {
+            if (h + a > 2.5) p += professionalPoisson(h, homeAdj) * professionalPoisson(a, awayAdj);
+        }
+    }
+    return Math.min(p, 0.92);
+}
+
+function professionalBttsProb(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 8) {
+    let p = 0;
+    const homeAdj = homeXG * (0.84 + homeForm * 0.32);
+    const awayAdj = awayXG * (0.84 + awayForm * 0.32);
+    
+    for (let h = 1; h <= max; h++) {
+        for (let a = 1; a <= max; a++) {
+            p += professionalPoisson(h, homeAdj) * professionalPoisson(a, awayAdj);
+        }
+    }
+    return Math.min(p, 0.88);
+}
+
+function professionalExpectedGoals(homeOdds, awayOdds, leagueAvgGoals, homeForm, awayForm) {
+    const impliedHome = 1 / homeOdds;
+    const impliedAway = 1 / awayOdds;
+    const totalImplied = impliedHome + impliedAway;
+    
+    const homeShare = impliedHome / totalImplied;
+    const awayShare = impliedAway / totalImplied;
+    
+    const baseHomeXG = (leagueAvgGoals * homeShare) * (0.85 + homeForm * 0.3);
+    const baseAwayXG = (leagueAvgGoals * awayShare) * (0.85 + awayForm * 0.3);
+    
+    return {
+        home: Math.max(0.25, Math.min(3.8, baseHomeXG)),
+        away: Math.max(0.2, Math.min(3.3, baseAwayXG))
+    };
+}
+
+// PROFESSIONELLES ENSEMBLE KI-MODELL
 class ProfessionalEnsemblePredictor {
     constructor() {
         this.models = {
@@ -1198,7 +1233,6 @@ class ProfessionalEnsemblePredictor {
     
     calculateProfessionalMarketScores(predictions, weights, totalWeight) {
         const marketScores = {};
-        
         for (const [modelName, prediction] of Object.entries(predictions)) {
             const weight = weights[modelName] / totalWeight;
             const market = prediction.bestMarket;
@@ -1269,7 +1303,7 @@ class ProfessionalEnsemblePredictor {
     }
 }
 
-// PROFESSIONELLE KI-EMPFEHLUNGS FUNKTIONEN
+      // PROFESSIONELLE KI-EMPFEHLUNGS FUNKTIONEN
 function getProfessionalAIRecommendation(game, leagueName) {
     try {
         const predictor = new ProfessionalEnsemblePredictor();
@@ -1589,103 +1623,7 @@ function analyzeProfessionalBasicRisk(game) {
         level: riskScore > 0.65 ? "SEHR HOCH" : riskScore > 0.45 ? "HOCH" : riskScore > 0.25 ? "MEDIUM" : "NIEDRIG",
         factors: factors
     };
-}
-
-function debugProfessionalRecommendation(game, recommendation) {
-    console.log("🔍 PROFESSIONAL KI-DEBUG:", {
-        spiel: `${game.home} vs ${game.away}`,
-        liga: game.league,
-        empfehlung: recommendation.recommendation,
-        market: recommendation.bestMarket,
-        score: (recommendation.bestScore * 100).toFixed(1) + '%',
-        confidence: recommendation.confidence,
-        risiko: recommendation.risk.level,
-        risikoKategorie: recommendation.risk.riskCategory,
-        h2hDaten: game.h2hData?.available ? `${game.h2hData.totalGames} Spiele (${game.h2hData.dataQuality})` : 'Nein',
-        form: `H:${(game.form.home * 100).toFixed(0)}% A:${(game.form.away * 100).toFixed(0)}%`,
-        xg: `H:${game.homeXG} A:${game.awayXG} T:${game.totalXG}`,
-        dataQuality: game.dataQuality
-    });
-}
-// server.js - PROFESSIONELLE VERSION MIT FOOTBALL-DATA.ORG - TEIL 4/4
-
-// PROFESSIONELLE MATHE-FUNKTIONEN
-function professionalFactorial(n) { 
-    if (n === 0) return 1;
-    let result = 1;
-    for (let i = 2; i <= n; i++) result *= i;
-    return result;
-}
-
-function professionalPoisson(k, λ) { 
-    return (Math.pow(λ, k) * Math.exp(-λ)) / professionalFactorial(k); 
-}
-
-function computeProfessionalMatchProb(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 10) {
-    let pHome = 0, pDraw = 0, pAway = 0;
-    const homeAdj = homeXG * (0.82 + homeForm * 0.36);
-    const awayAdj = awayXG * (0.82 + awayForm * 0.36);
-    
-    for (let h = 0; h <= max; h++) {
-        for (let a = 0; a <= max; a++) {
-            const p = professionalPoisson(h, homeAdj) * professionalPoisson(a, awayAdj);
-            if (h > a) pHome += p;
-            else if (h === a) pDraw += p;
-            else pAway += p;
-        }
-    }
-    
-    const total = pHome + pDraw + pAway;
-    return { 
-        home: pHome / total, 
-        draw: pDraw / total, 
-        away: pAway / total 
-    };
-}
-
-function professionalProbOver25(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 10) {
-    let p = 0;
-    const homeAdj = homeXG * (0.88 + homeForm * 0.24);
-    const awayAdj = awayXG * (0.88 + awayForm * 0.24);
-    
-    for (let h = 0; h <= max; h++) {
-        for (let a = 0; a <= max; a++) {
-            if (h + a > 2.5) p += professionalPoisson(h, homeAdj) * professionalPoisson(a, awayAdj);
-        }
-    }
-    return Math.min(p, 0.92);
-}
-
-function professionalBttsProb(homeXG, awayXG, homeForm = 0.5, awayForm = 0.5, max = 8) {
-    let p = 0;
-    const homeAdj = homeXG * (0.84 + homeForm * 0.32);
-    const awayAdj = awayXG * (0.84 + awayForm * 0.32);
-    
-    for (let h = 1; h <= max; h++) {
-        for (let a = 1; a <= max; a++) {
-            p += professionalPoisson(h, homeAdj) * professionalPoisson(a, awayAdj);
-        }
-    }
-    return Math.min(p, 0.88);
-}
-
-function professionalExpectedGoals(homeOdds, awayOdds, leagueAvgGoals, homeForm, awayForm) {
-    const impliedHome = 1 / homeOdds;
-    const impliedAway = 1 / awayOdds;
-    const totalImplied = impliedHome + impliedAway;
-    
-    const homeShare = impliedHome / totalImplied;
-    const awayShare = impliedAway / totalImplied;
-    
-    const baseHomeXG = (leagueAvgGoals * homeShare) * (0.85 + homeForm * 0.3);
-    const baseAwayXG = (leagueAvgGoals * awayShare) * (0.85 + awayForm * 0.3);
-    
-    return {
-        home: Math.max(0.25, Math.min(3.8, baseHomeXG)),
-        away: Math.max(0.2, Math.min(3.3, baseAwayXG))
-    };
-}
-
+ }  
 // HAUPT-API ROUTE FÜR PROFESSIONELLE ANALYSE
 app.get("/api/games", async (req, res) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -1851,7 +1789,6 @@ app.get("/api/games", async (req, res) => {
         }
     });
 });
-
 // PROFESSIONELLE PERFORMANCE ROUTE
 app.get("/api/performance", (req, res) => {
     if (!fs.existsSync(PERFORMANCE_FILE)) {
@@ -2018,6 +1955,6 @@ app.listen(PORT, () => {
     console.log(`📊 Datenquellen: Odds-API + Football-Data.org`);
     console.log(`⚽ Unterstützte Ligen: ${PROFESSIONAL_LEAGUES.length}`);
     console.log(`🔧 Features: Echte Form & H2H Daten von Football-Data.org`);
-    console.log(`🎯 Liga-Codes: PL, BL1, PD, SA, FL1, CL`);
+    console.log(`🎯 Verfügbare Ligen: Premier League, Bundesliga, La Liga, Serie A, Ligue 1, Champions League, Championship, Primeira Liga, Eredivisie, Brasileirão`);
     console.log(`💡 Status: Betriebsbereit für professionelle Wettanalyse`);
 });
