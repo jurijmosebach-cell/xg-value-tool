@@ -1,3 +1,288 @@
+// server.js - PROFESSIONELLE VERSION MIT ECHTEN DATEN - TEIL 1/4
+import express from "express";
+import fetch from "node-fetch";
+import cors from "cors";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import "dotenv/config";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+app.use(cors());
+app.use(express.static(__dirname));
+
+const ODDS_API_KEY = process.env.ODDS_API_KEY;
+const FOOTBALL_DATA_KEY = process.env.FOOTBALL_DATA_API_KEY;
+
+if (!ODDS_API_KEY) {
+    console.error("❌ KRITISCHER FEHLER: ODDS_API_KEY fehlt in .env Datei!");
+    process.exit(1);
+}
+if (!FOOTBALL_DATA_KEY) {
+    console.error("❌ KRITISCHER FEHLER: FOOTBALL_DATA_API_KEY fehlt in .env Datei!");
+    process.exit(1);
+}
+
+const PORT = process.env.PORT || 10000;
+const DATA_DIR = path.join(__dirname, "data");
+const PERFORMANCE_FILE = path.join(DATA_DIR, "performance.json");
+
+// PROFESSIONELLE FOOTBALL-DATA.ORG KONFIGURATION
+const FOOTBALL_DATA_CONFIG = {
+    baseURL: "https://api.football-data.org/v4",
+    headers: {
+        'X-Auth-Token': FOOTBALL_DATA_KEY,
+        'X-Response-Control': 'minified'
+    },
+    currentSeason: 2024,
+    analysis: {
+        formMatches: 8,
+        confidenceThreshold: 0.7,
+        maxRequestsPerMinute: 10
+    }
+};
+
+// ✅ PROFESSIONELLE LIGA-DATENBANK - NUR ECHTE VERFÜGBARE LIGEN
+const PROFESSIONAL_LEAGUES = [
+    { 
+        key: "soccer_epl", 
+        name: "Premier League", 
+        footballDataId: 'PL',
+        baseXG: [1.65, 1.30], 
+        avgGoals: 2.85,
+        style: "HIGH_TEMPO",
+        country: "England",
+        tier: "TIER_1"
+    },
+    { 
+        key: "soccer_germany_bundesliga", 
+        name: "Bundesliga", 
+        footballDataId: 'BL1',
+        baseXG: [1.75, 1.45], 
+        avgGoals: 3.20,
+        style: "ATTACKING",
+        country: "Deutschland", 
+        tier: "TIER_1"
+    },
+    { 
+        key: "soccer_spain_la_liga", 
+        name: "La Liga", 
+        footballDataId: 'PD',
+        baseXG: [1.50, 1.25], 
+        avgGoals: 2.75,
+        style: "TECHNICAL",
+        country: "Spanien",
+        tier: "TIER_1"
+    },
+    { 
+        key: "soccer_italy_serie_a", 
+        name: "Serie A", 
+        footballDataId: 'SA',
+        baseXG: [1.55, 1.30], 
+        avgGoals: 2.85,
+        style: "TACTICAL",
+        country: "Italien",
+        tier: "TIER_1"
+    },
+    { 
+        key: "soccer_france_ligue_one", 
+        name: "Ligue 1", 
+        footballDataId: 'FL1',
+        baseXG: [1.50, 1.25], 
+        avgGoals: 2.75,
+        style: "PHYSICAL",
+        country: "Frankreich",
+        tier: "TIER_1"
+    },
+    { 
+        key: "soccer_uefa_champs_league", 
+        name: "Champions League", 
+        footballDataId: 'CL',
+        baseXG: [1.60, 1.40], 
+        avgGoals: 3.00,
+        style: "ELITE",
+        country: "Europa",
+        tier: "CONTINENTAL"
+    },
+    { 
+        key: "soccer_efl_champ", 
+        name: "Championship", 
+        footballDataId: 'ELC',
+        baseXG: [1.45, 1.20], 
+        avgGoals: 2.65,
+        style: "INTENSE",
+        country: "England",
+        tier: "TIER_2"
+    },
+    { 
+        key: "soccer_portugal_primeira_liga", 
+        name: "Primeira Liga", 
+        footballDataId: 'PPL',
+        baseXG: [1.40, 1.15], 
+        avgGoals: 2.55,
+        style: "TECHNICAL",
+        country: "Portugal",
+        tier: "TIER_1"
+    },
+    { 
+        key: "soccer_netherlands_eredivisie", 
+        name: "Eredivisie", 
+        footballDataId: 'DED',
+        baseXG: [1.70, 1.40], 
+        avgGoals: 3.10,
+        style: "OFFENSIVE",
+        country: "Niederlande",
+        tier: "TIER_1"
+    },
+    { 
+        key: "soccer_brazil_campeonato", 
+        name: "Brasileirão Série A", 
+        footballDataId: 'BSA',
+        baseXG: [1.35, 1.10], 
+        avgGoals: 2.45,
+        style: "SKILLFUL",
+        country: "Brasilien",
+        tier: "TIER_1"
+    }
+];
+
+const CACHE = {};
+const TEAM_CACHE = {};
+const H2H_CACHE = {};
+let PERFORMANCE_DATA = {};
+
+// PROFESSIONELLES GLOBALES TEAM-MAPPING
+const PROFESSIONAL_TEAM_MAPPINGS = {
+    // Premier League
+    "Manchester United": "Manchester United",
+    "Man United": "Manchester United",
+    "Manchester City": "Manchester City", 
+    "Man City": "Manchester City",
+    "Liverpool": "Liverpool",
+    "Chelsea": "Chelsea",
+    "Arsenal": "Arsenal",
+    "Tottenham": "Tottenham Hotspur",
+    "Spurs": "Tottenham Hotspur",
+    "Newcastle United": "Newcastle United",
+    "Brighton": "Brighton and Hove Albion",
+    "Nottingham Forest": "Nottingham Forest",
+    "Fulham": "Fulham",
+    "West Ham": "West Ham United",
+    "Aston Villa": "Aston Villa",
+    "Crystal Palace": "Crystal Palace",
+    "Wolves": "Wolverhampton Wanderers",
+    "Everton": "Everton",
+    "Brentford": "Brentford",
+    "Sheffield Utd": "Sheffield United",
+    "Burnley": "Burnley",
+    "Luton": "Luton Town",
+    "Bournemouth": "AFC Bournemouth",
+    
+    // Bundesliga
+    "Bayern Munich": "Bayern Munich",
+    "Bayern": "Bayern Munich", 
+    "Dortmund": "Borussia Dortmund",
+    "Leipzig": "RB Leipzig",
+    "Leverkusen": "Bayer Leverkusen",
+    "Stuttgart": "VfB Stuttgart",
+    "Frankfurt": "Eintracht Frankfurt",
+    "Wolfsburg": "VfL Wolfsburg",
+    "Mönchengladbach": "Borussia Mönchengladbach",
+    "Hoffenheim": "TSG Hoffenheim",
+    "Freiburg": "SC Freiburg",
+    "Augsburg": "FC Augsburg",
+    "Mainz": "Mainz 05",
+    "Union Berlin": "Union Berlin",
+    "Bochum": "VfL Bochum",
+    "Köln": "FC Köln",
+    "Darmstadt": "SV Darmstadt 98",
+    "Heidenheim": "FC Heidenheim",
+    
+    // La Liga
+    "Real Madrid": "Real Madrid",
+    "Barcelona": "FC Barcelona",
+    "Atletico Madrid": "Atlético Madrid",
+    "Atlético Madrid": "Atlético Madrid",
+    "Sevilla": "Sevilla FC",
+    "Valencia": "Valencia CF",
+    "Athletic Bilbao": "Athletic Club",
+    "Real Sociedad": "Real Sociedad",
+    "Real Betis": "Real Betis",
+    "Villarreal": "Villarreal CF",
+    "Getafe": "Getafe CF",
+    "Osasuna": "CA Osasuna",
+    "Celta Vigo": "Celta de Vigo",
+    "Mallorca": "RCD Mallorca",
+    "Girona": "Girona FC",
+    "Las Palmas": "UD Las Palmas",
+    "Rayo Vallecano": "Rayo Vallecano",
+    "Alaves": "Deportivo Alavés",
+    "Granada": "Granada CF",
+    "Cadiz": "Cádiz CF",
+    "Almeria": "UD Almería",
+    
+    // Serie A
+    "Juventus": "Juventus",
+    "Inter": "Inter Milan",
+    "Milan": "AC Milan",
+    "Napoli": "Napoli",
+    "Roma": "AS Roma",
+    "Lazio": "Lazio",
+    "Atalanta": "Atalanta",
+    "Fiorentina": "Fiorentina",
+    "Bologna": "Bologna",
+    "Monza": "Monza",
+    "Torino": "Torino",
+    "Genoa": "Genoa",
+    "Lecce": "Lecce",
+    "Frosinone": "Frosinone",
+    "Sassuolo": "Sassuolo",
+    "Udinese": "Udinese",
+    "Empoli": "Empoli",
+    "Verona": "Hellas Verona",
+    "Cagliari": "Cagliari",
+    "Salernitana": "Salernitana",
+    
+    // Ligue 1
+    "PSG": "Paris Saint-Germain",
+    "Paris SG": "Paris Saint-Germain",
+    "Marseille": "Olympique Marseille",
+    "Lyon": "Olympique Lyon",
+    "Monaco": "AS Monaco",
+    "Lille": "Lille OSC",
+    "Rennes": "Stade Rennais",
+    "Nice": "OGC Nice",
+    "Lens": "RC Lens",
+    "Reims": "Stade Reims",
+    "Montpellier": "Montpellier HSC",
+    "Toulouse": "Toulouse FC",
+    "Brest": "Stade Brestois 29",
+    "Strasbourg": "RC Strasbourg",
+    "Nantes": "FC Nantes",
+    "Le Havre": "Le Havre AC",
+    "Metz": "FC Metz",
+    "Lorient": "FC Lorient",
+    "Clermont": "Clermont Foot 63",
+    
+    // Champions League Teams
+    "Young Boys": "Young Boys",
+    "Crvena Zvezda": "Red Star Belgrade",
+    "Galatasaray": "Galatasaray",
+    "Copenhagen": "FC Copenhagen",
+    "Shakhtar Donetsk": "Shakhtar Donetsk",
+    "Antwerp": "Royal Antwerp",
+    "Celtic": "Celtic",
+    "Feyenoord": "Feyenoord",
+    "Braga": "SC Braga",
+    "PSV": "PSV Eindhoven",
+    "Benfica": "Benfica",
+    "Sporting CP": "Sporting CP",
+    "Porto": "FC Porto"
+};
+
 // server.js - PROFESSIONELLE VERSION MIT FOOTBALL-DATA.ORG - TEIL 1/4
 import express from "express";
 import fetch from "node-fetch";
@@ -103,48 +388,7 @@ const TEAM_CACHE = {};
 const H2H_CACHE = {};
 let PERFORMANCE_DATA = {};
 
-// PROFESSIONELLES TEAM-MAPPING
-const PROFESSIONAL_TEAM_MAPPINGS = {
-    // Premier League
-    "Manchester United": "Manchester United FC",
-    "Man United": "Manchester United FC",
-    "Manchester City": "Manchester City FC", 
-    "Man City": "Manchester City FC",
-    "Liverpool": "Liverpool FC",
-    "Chelsea": "Chelsea FC",
-    "Arsenal": "Arsenal FC",
-    "Tottenham": "Tottenham Hotspur FC",
-    "Spurs": "Tottenham Hotspur FC",
-    "Newcastle United": "Newcastle United FC",
-    "Brighton": "Brighton & Hove Albion FC",
-    "Nottingham Forest": "Nottingham Forest FC",
-    "Fulham": "Fulham FC",
-    "Sunderland": "Sunderland AFC",
-    
-    // Bundesliga
-    "Bayern Munich": "FC Bayern München",
-    "Bayern": "FC Bayern München", 
-    "Dortmund": "Borussia Dortmund",
-    "Leipzig": "RB Leipzig",
-    "Leverkusen": "Bayer 04 Leverkusen",
-    "Stuttgart": "VfB Stuttgart",
-    "Frankfurt": "Eintracht Frankfurt",
-    "Wolfsburg": "VfL Wolfsburg",
-    
-    // La Liga
-    "Real Madrid": "Real Madrid CF",
-    "Barcelona": "FC Barcelona",
-    "Atletico Madrid": "Atlético Madrid",
-    "Sevilla": "Sevilla FC",
-    "Valencia": "Valencia CF",
-    
-    // Serie A
-    "Juventus": "Juventus FC",
-    "Inter": "FC Internazionale Milano",
-    "Milan": "AC Milan",
-    "Napoli": "SSC Napoli",
-    "Roma": "AS Roma",
-    "Lazio": "SS Lazio"
+
 };
 
 // PROFESSIONELLE TEAM-MATCHING FUNKTION
